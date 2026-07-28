@@ -45,6 +45,12 @@
   .btn-lg {
     @apply px-6 py-3 text-lg;
   }
+
+  /* Card Styles */
+  .card {
+    @apply bg-white  shadow-xl border border-slate-200 p-4;
+  }
+
   .card-hover {
     @apply transition-shadow duration-200 hover:shadow-md;
   }

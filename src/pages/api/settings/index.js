@@ -41,7 +41,7 @@ async function handleGet(req, res) {
       },
       facebookPixel: { id: '', enabled: false },
       site: {
-        name: 'Meesho Store',
+        name: 'Flipkart Store',
         currency: 'INR',
         currencySymbol: '₹',
       },
@@ -62,27 +62,59 @@ async function handleGet(req, res) {
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
   const isAdmin = token ? !!verifyToken(token) : false;
 
-  let paymentData = {};
-  if (settings.payment) {
-    paymentData = {
-      codEnabled: !!settings.payment.codEnabled,
-      onlinePaymentEnabled: !!settings.payment.onlinePaymentEnabled,
-      cashfreeEnabled: !!settings.payment.cashfreeEnabled,
-      cashfreeAppId: settings.payment.cashfreeAppId || '',
-      cashfreeMode: settings.payment.cashfreeMode || 'sandbox',
-      cashfreeSecretKey: isAdmin
-        ? (settings.payment.cashfreeSecretKey || '')
-        : (settings.payment.cashfreeSecretKey
-            ? `${settings.payment.cashfreeSecretKey.substring(0, 4)}****************${settings.payment.cashfreeSecretKey.slice(-4)}`
-            : ''),
-    };
-  }
+  // Merge environment variables dynamically
+  const upiId = process.env.NEXT_PUBLIC_UPI_ID || settings.upi?.id || 'demo@upi';
+  const phonepe2UpiId = process.env.NEXT_PUBLIC_PHONEPE2_UPI_ID || settings.upi?.Phonepe2UpiId || '';
+  const phonepe2Name = process.env.NEXT_PUBLIC_PHONEPE2_NAME || settings.upi?.Phonepe2Name || 'Flipkart Seller';
+  
+  const upiData = {
+    id: upiId,
+    name: settings.upi?.name || '',
+    Gpay: settings.upi ? !!settings.upi.Gpay : true,
+    Phonepe: settings.upi ? !!settings.upi.Phonepe : true,
+    Phonepe2: !!phonepe2UpiId || (settings.upi ? !!settings.upi.Phonepe2 : false),
+    Phonepe2UpiId: phonepe2UpiId,
+    Phonepe2Name: phonepe2Name,
+    Paytm: settings.upi ? !!settings.upi.Paytm : true,
+    Bhim: settings.upi ? !!settings.upi.Bhim : true,
+    WPay: settings.upi ? !!settings.upi.WPay : false,
+  };
+
+  const pixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID || settings.facebookPixel?.id || '';
+  const pixelEnabled = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ENABLED !== undefined 
+    ? process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ENABLED === 'true' 
+    : (settings.facebookPixel ? !!settings.facebookPixel.enabled : false);
+
+  const facebookPixelData = {
+    id: pixelId,
+    enabled: pixelEnabled
+  };
+
+  const cashfreeAppId = process.env.CASHFREE_APP_ID || settings.payment?.cashfreeAppId || '';
+  const cashfreeSecretKey = process.env.CASHFREE_SECRET_KEY || settings.payment?.cashfreeSecretKey || '';
+  const cashfreeMode = process.env.CASHFREE_MODE || settings.payment?.cashfreeMode || 'sandbox';
+  const cashfreeEnabled = process.env.CASHFREE_ENABLED !== undefined 
+    ? process.env.CASHFREE_ENABLED === 'true' 
+    : (settings.payment ? !!settings.payment.cashfreeEnabled : false);
+
+  const paymentData = {
+    codEnabled: settings.payment ? !!settings.payment.codEnabled : true,
+    onlinePaymentEnabled: settings.payment ? !!settings.payment.onlinePaymentEnabled : true,
+    cashfreeEnabled: cashfreeEnabled,
+    cashfreeAppId: cashfreeAppId,
+    cashfreeMode: cashfreeMode,
+    cashfreeSecretKey: isAdmin
+      ? cashfreeSecretKey
+      : (cashfreeSecretKey
+          ? `${cashfreeSecretKey.substring(0, 4)}****************${cashfreeSecretKey.slice(-4)}`
+          : ''),
+  };
 
   return res.status(200).json({
     success: true,
     data: {
-      upi: settings.upi || {},
-      facebookPixel: settings.facebookPixel || {},
+      upi: upiData,
+      facebookPixel: facebookPixelData,
       site: settings.site || {},
       shipping: settings.shipping || {},
       payment: paymentData,

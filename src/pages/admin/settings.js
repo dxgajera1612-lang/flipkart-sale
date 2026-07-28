@@ -35,7 +35,7 @@ export default function SettingsPage() {
       enabled: false,
     },
     site: {
-      name: 'Meesho Store',
+      name: 'Flipkart Store',
       email: '',
       phone: '',
       currency: 'INR',

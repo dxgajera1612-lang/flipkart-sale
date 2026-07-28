@@ -260,15 +260,6 @@ function Home() {
     <div className="flex flex-col items-center justify-start min-w-[64px] cursor-pointer group">
       <div className="w-16 h-16 mb-1 overflow-hidden transition-transform transform">
         <img
-          src="/assets/356d37e9512c7fcb-CxmGO5wA.webp"
-          alt="Nutrition & more"
-          className="w-full h-full object-contain"
-        />
-      </div>
-    </div>
-    <div className="flex flex-col items-center justify-start min-w-[64px] cursor-pointer group">
-      <div className="w-16 h-16 mb-1 overflow-hidden transition-transform transform">
-        <img
           src="data:image/webp;base64,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"
           alt="Insurance"
           className="w-full h-full object-contain"
@@ -395,7 +386,7 @@ function Home() {
                   {mrp > price && (
                     <>
                       <span className="mrp-price line-through">₹{mrp}</span>
-                      {discount && <span className="off-percentage m-2">{discount}</span>}
+                      {discount && <span className="off-percentage m-2">{discount}%</span>} 
                     </>
                   )}
                 </div>
@@ -403,7 +394,7 @@ function Home() {
                   <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" width={12} height={12}>
                     <path fillRule="evenodd" clipRule="evenodd" d="M12 6A6 6 0 1 1 0 6a6 6 0 0 1 12 0ZM5.168 9.008l.8.17L3.554 6.49l-.005-.75h1.298c.383 0 .687-.076.91-.228.225-.152.375-.352.45-.6h-2.76l.261-.892h2.478c-.167-.507-.62-.76-1.36-.76h-1.38l.277-1h4.834l-.262.897H7.176c.174.245.287.533.338.863h1.037l-.257.891H7.52c-.076.54-.301.952-.678 1.238-.376.286-.908.457-1.596.512L6.88 8.493l.064-.826a.41.41 0 0 1 .437-.375.403.403 0 0 1 .373.436L7.59 9.88l-.004.012-.004.013a.42.42 0 0 1-.03.104l-.001.005a.263.263 0 0 1-.017.037.288.288 0 0 1-.011.031c-.018.026-.039.045-.06.065a.07.07 0 0 0-.006.008c-.004.004-.007.009-.013.012a.433.433 0 0 1-.12.068.417.417 0 0 1-.155.023c-.005.002-.01.003-.015.002-.019-.002-.037-.006-.054-.01l-2.102-.445a.407.407 0 0 1 .17-.797Z" fill="#219653" />
                   </svg>
-                  <span style={{ fontSize: 10, color: 'green' }}>₹1558 with 3 Special Offers</span>
+                  <span style={{ fontSize: 10, color: 'green' }}>Special Offers Available</span>
                 </span>
                 <p className="free-delivery">Free Delivery</p>
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>

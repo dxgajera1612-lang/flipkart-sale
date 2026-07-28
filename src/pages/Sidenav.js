@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import React, { useMemo, useCallback, useEffect } from 'react';
+import { trackViewCart, trackRemoveFromCart } from '../utils/facebookPixel';
 
 function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
 
@@ -43,8 +44,13 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
 
     const removeItem = useCallback((itemId) => {
         if (!data133) return;
+        const removedItem = data133.find(item => item.id === itemId);
         const updatedProducts = data133.filter(item => item.id !== itemId);
         updateCart(updatedProducts);
+        // FB tracking
+        if (removedItem) {
+            trackRemoveFromCart(removedItem, removedItem.quantity || 1);
+        }
     }, [data133, updateCart]);
 
     const decreaseQuantity = useCallback((itemId) => {
@@ -95,6 +101,13 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
 
         document.body.style.overflow = 'hidden';
         window.addEventListener('keydown', handleKeyDown);
+
+        // FB: track cart view when drawer opens
+        if (data133 && data133.length > 0) {
+            const total = data133.reduce((s, p) => s + (parseFloat(p.sellingPrice) || 0) * (parseInt(p.quantity) || 1), 0);
+            trackViewCart(data133, total);
+        }
+
         return () => {
             document.body.style.overflow = previousOverflow;
             window.removeEventListener('keydown', handleKeyDown);
@@ -231,11 +244,11 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
     <div className="cart-empty">
         <div className="cart-empty-icon">
             <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-                <circle cx="28" cy="28" r="27" stroke="#f3d9ee" strokeWidth="1.5" strokeDasharray="4 3"/>
-                <path d="M14 16h4.5l5 18h13l4.5-13H20" stroke="#d8a8d0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="25" cy="38" r="2" fill="#d8a8d0"/>
-                <circle cx="35" cy="38" r="2" fill="#d8a8d0"/>
-                <path d="M28 10v3M24 11.5l1.5 2.5M32 11.5l-1.5 2.5" stroke="#e9cfe5" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="28" cy="28" r="27" stroke="#d6e4ff" strokeWidth="1.5" strokeDasharray="4 3"/>
+                <path d="M14 16h4.5l5 18h13l4.5-13H20" stroke="#2874f0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="25" cy="38" r="2" fill="#2874f0"/>
+                <circle cx="35" cy="38" r="2" fill="#2874f0"/>
+                <path d="M28 10v3M24 11.5l1.5 2.5M32 11.5l-1.5 2.5" stroke="#93b4f0" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
         </div>
         <p className="cart-empty-text">Your cart is empty</p>
@@ -275,15 +288,14 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
         {/* To Pay + Checkout — combined single bar */}
        <div className="cart__checkout">
       <div className="cart__final__payment">
-        <span className="topay-amount text-left w-100">
+        <h3 className=" text-left w-100" style={{fontSize:"20px"}}>
           ₹{formatPrice(totalMrp)}
-        </span>
-        <p className="tax-note text-left">VIEW PRICE DETAILS</p>
+        </h3>
       </div>
 
-      <Link href="/cart" className="confirm-btn d-flex justify-content-end">
-        Continue
-      </Link>
+      <a href="/cart" className="confirm-order-btn">
+        Place Order
+      </a>
     </div>
     </div>
 )}
@@ -390,7 +402,7 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
     margin: 0;
 }
 .confirm-order-btn {
-    background: #ffc200;
+    background: #fb641b;
     color: #fff;
     text-decoration: none;
     font-size: 13.5px;
@@ -398,13 +410,13 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
     padding: 11px 18px;     /* ⬇ was 13px 22px */
     border-radius: 10px;
     white-space: nowrap;
-    box-shadow: 0 4px 14px rgba(159,32,137,0.3);
+    box-shadow: 0 4px 14px rgba(251, 100, 27, 0.35);
     transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 .confirm-order-btn:hover {
-    background: #831a70;
+    background: #e05300;
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(159,32,137,0.4);
+    box-shadow: 0 6px 18px rgba(251, 100, 27, 0.45);
     color: #fff;
     text-decoration: none;
 }
@@ -785,7 +797,7 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
                     margin: 0;
                 }
                 .confirm-order-btn {
-                    background: #ffc200;
+                    background: #fb641b;
                     color: #fff;
                     text-decoration: none;
                     font-size: 14px;
@@ -795,21 +807,21 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
                     letter-spacing: 0.2px;
                     transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
                     white-space: nowrap;
-                    box-shadow: 0 4px 14px rgba(159, 32, 137, 0.35);
+                    box-shadow: 0 4px 14px rgba(251, 100, 27, 0.35);
                     display: inline-flex;
                     align-items: center;
                     gap: 4px;
                 }
                 .confirm-order-btn:hover {
-                    background: #831a70;
+                    background: #e05300;
                     transform: translateY(-1px);
-                    box-shadow: 0 6px 20px rgba(159, 32, 137, 0.45);
+                    box-shadow: 0 6px 20px rgba(251, 100, 27, 0.45);
                     color: #fff;
                     text-decoration: none;
                 }
                 .confirm-order-btn:active {
                     transform: translateY(0);
-                    box-shadow: 0 2px 8px rgba(159, 32, 137, 0.3);
+                    box-shadow: 0 2px 8px rgba(251, 100, 27, 0.2);
                 }
             `}</style>
         </div>

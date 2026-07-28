@@ -49,7 +49,7 @@ export default function AdminLogin() {
       <div className="w-full max-w-md px-4">
         <div className="card animate-slide-up">
           <div className="text-center mb-8">
-            <div className="text-3xl font-bold text-primary-600 mb-2">Meesho</div>
+            <div className="text-3xl font-bold text-primary-600 mb-2">Flipkart</div>
             <h1 className="text-2xl font-bold text-gray-900">Admin Login</h1>
             <p className="mt-2 text-gray-600">Sign in to your admin account</p>
           </div>

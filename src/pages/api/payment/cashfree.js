@@ -15,17 +15,21 @@ export default async function handler(req, res) {
 
     // Load settings from DB
     const settings = await Settings.findOne();
-    if (!settings?.payment?.cashfreeEnabled) {
+    
+    // Prioritize environment variables, fallback to DB settings
+    const cashfreeAppId = process.env.CASHFREE_APP_ID || settings?.payment?.cashfreeAppId;
+    const cashfreeSecretKey = process.env.CASHFREE_SECRET_KEY || settings?.payment?.cashfreeSecretKey;
+    const cashfreeMode = process.env.CASHFREE_MODE || settings?.payment?.cashfreeMode || 'sandbox';
+    const cashfreeEnabled = process.env.CASHFREE_ENABLED !== undefined
+      ? process.env.CASHFREE_ENABLED === 'true'
+      : !!settings?.payment?.cashfreeEnabled;
+
+    if (!cashfreeEnabled) {
       return res.status(400).json({
         success: false,
-        message: 'Cashfree payment gateway is not enabled. Please enable it in admin settings.',
+        message: 'Cashfree payment gateway is not enabled. Please enable it in admin settings or environment variables.',
       });
     }
-
-    // Support fallback to environment variables
-    const cashfreeAppId = settings.payment.cashfreeAppId || process.env.CASHFREE_APP_ID;
-    const cashfreeSecretKey = settings.payment.cashfreeSecretKey || process.env.CASHFREE_SECRET_KEY;
-    const cashfreeMode = settings.payment.cashfreeMode || process.env.CASHFREE_MODE || 'sandbox';
 
     if (!cashfreeAppId || !cashfreeSecretKey) {
       return res.status(400).json({
@@ -95,8 +99,8 @@ export default async function handler(req, res) {
       customer_details: {
         customer_id: `cust_${Date.now()}`,
         customer_phone: customerPhone,
-        customer_name: (name || 'Customer').slice(0, 50),
-        customer_email: email || 'customer@example.com',
+        customer_name: (name || 'ravi').slice(0, 50),
+        customer_email: email || 'abbf@gmail.com',
       },
       order_meta: {
         return_url: returnUrl,

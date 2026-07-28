@@ -5,7 +5,7 @@
  * Comprehensive tracking for optimal ad performance
  */
 
-export const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID;
+export const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID || process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
 
 // Initialize Facebook Pixel
 export const initFacebookPixel = (pixelId) => {
@@ -267,13 +267,17 @@ export const trackUpdateCart = (cartItems, totalValue) => {
 
 /**
  * Track payment info addition
+ * @param {String} paymentMethod - Payment method name
+ * @param {Number} value - Cart total value (for Revenue optimization)
  */
-export const trackAddPaymentInfo = (paymentMethod) => {
+export const trackAddPaymentInfo = (paymentMethod, value = 0) => {
   if (typeof window !== 'undefined' && window.fbq) {
     window.fbq('track', 'AddPaymentInfo', {
       payment_method: paymentMethod,
+      value: value,
+      currency: 'INR',
     });
-    console.log('💳 FB Pixel: AddPaymentInfo tracked:', paymentMethod);
+    console.log('💳 FB Pixel: AddPaymentInfo tracked:', paymentMethod, '₹' + value);
   }
 };
 

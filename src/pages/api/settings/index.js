@@ -39,7 +39,16 @@ async function handleGet(req, res) {
         Bhim: true,
         WPay: false,
       },
-      facebookPixel: { id: '', enabled: false },
+      facebookPixel: {
+        id: '',
+        enabled: false,
+        customCode: '',
+        events: [],
+      },
+      googleAnalytics: {
+        id: '',
+        enabled: false,
+      },
       site: {
         name: 'Flipkart Store',
         currency: 'INR',
@@ -63,9 +72,9 @@ async function handleGet(req, res) {
   const isAdmin = token ? !!verifyToken(token) : false;
 
   // Merge environment variables dynamically
-  const upiId = process.env.NEXT_PUBLIC_UPI_ID || settings.upi?.id || 'demo@upi';
-  const phonepe2UpiId = process.env.NEXT_PUBLIC_PHONEPE2_UPI_ID || settings.upi?.Phonepe2UpiId || '';
-  const phonepe2Name = process.env.NEXT_PUBLIC_PHONEPE2_NAME || settings.upi?.Phonepe2Name || 'Flipkart Seller';
+  const upiId = settings.upi?.id || process.env.NEXT_PUBLIC_UPI_ID || 'demo@upi';
+  const phonepe2UpiId = settings.upi?.Phonepe2UpiId || process.env.NEXT_PUBLIC_PHONEPE2_UPI_ID || '';
+  const phonepe2Name = settings.upi?.Phonepe2Name || process.env.NEXT_PUBLIC_PHONEPE2_NAME || 'Flipkart Seller';
   
   const upiData = {
     id: upiId,
@@ -80,22 +89,24 @@ async function handleGet(req, res) {
     WPay: settings.upi ? !!settings.upi.WPay : false,
   };
 
-  const pixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID || settings.facebookPixel?.id || '';
-  const pixelEnabled = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ENABLED !== undefined 
-    ? process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ENABLED === 'true' 
-    : (settings.facebookPixel ? !!settings.facebookPixel.enabled : false);
+  const pixelId = settings.facebookPixel?.id || process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID || '';
+  const pixelEnabled = settings.facebookPixel?.enabled !== undefined
+    ? !!settings.facebookPixel.enabled
+    : (process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ENABLED === 'true');
 
   const facebookPixelData = {
     id: pixelId,
-    enabled: pixelEnabled
+    enabled: pixelEnabled,
+    customCode: isAdmin ? (settings.facebookPixel?.customCode || '') : '',
+    events: isAdmin ? (settings.facebookPixel?.events || []) : [],
   };
 
-  const cashfreeAppId = process.env.CASHFREE_APP_ID || settings.payment?.cashfreeAppId || '';
-  const cashfreeSecretKey = process.env.CASHFREE_SECRET_KEY || settings.payment?.cashfreeSecretKey || '';
-  const cashfreeMode = process.env.CASHFREE_MODE || settings.payment?.cashfreeMode || 'sandbox';
-  const cashfreeEnabled = process.env.CASHFREE_ENABLED !== undefined 
-    ? process.env.CASHFREE_ENABLED === 'true' 
-    : (settings.payment ? !!settings.payment.cashfreeEnabled : false);
+  const cashfreeAppId = settings.payment?.cashfreeAppId || process.env.CASHFREE_APP_ID || '';
+  const cashfreeSecretKey = settings.payment?.cashfreeSecretKey || process.env.CASHFREE_SECRET_KEY || '';
+  const cashfreeMode = settings.payment?.cashfreeMode || process.env.CASHFREE_MODE || 'sandbox';
+  const cashfreeEnabled = settings.payment?.cashfreeEnabled !== undefined
+    ? !!settings.payment.cashfreeEnabled
+    : (process.env.CASHFREE_ENABLED === 'true');
 
   const paymentData = {
     codEnabled: settings.payment ? !!settings.payment.codEnabled : true,
@@ -115,6 +126,7 @@ async function handleGet(req, res) {
     data: {
       upi: upiData,
       facebookPixel: facebookPixelData,
+      googleAnalytics: settings.googleAnalytics || { id: '', enabled: false },
       site: settings.site || {},
       shipping: settings.shipping || {},
       payment: paymentData,
@@ -170,6 +182,10 @@ async function handlePut(req, res) {
     if (body.facebookPixel) {
       settings.facebookPixel.id = body.facebookPixel.id ?? settings.facebookPixel.id;
       settings.facebookPixel.enabled = !!body.facebookPixel.enabled;
+      settings.facebookPixel.customCode = body.facebookPixel.customCode ?? settings.facebookPixel.customCode;
+      if (Array.isArray(body.facebookPixel.events)) {
+        settings.facebookPixel.events = body.facebookPixel.events;
+      }
     }
 
     if (body.site) {
@@ -177,7 +193,14 @@ async function handlePut(req, res) {
     }
 
     if (body.shipping) {
-      settings.shipping = body.shipping;
+      settings.shipping = { ...settings.shipping, ...body.shipping };
+    }
+
+    if (body.googleAnalytics) {
+      settings.googleAnalytics = {
+        ...settings.googleAnalytics,
+        ...body.googleAnalytics,
+      };
     }
 
     if (body.payment) {
@@ -186,10 +209,11 @@ async function handlePut(req, res) {
       settings.payment.cashfreeEnabled = body.payment.cashfreeEnabled ?? settings.payment.cashfreeEnabled;
       settings.payment.cashfreeAppId = body.payment.cashfreeAppId ?? settings.payment.cashfreeAppId;
       settings.payment.cashfreeMode = body.payment.cashfreeMode ?? settings.payment.cashfreeMode;
-      
-      // Update secret key if it's modified and not the masked dummy value
-      if (body.payment.cashfreeSecretKey && !body.payment.cashfreeSecretKey.includes('*')) {
-        settings.payment.cashfreeSecretKey = body.payment.cashfreeSecretKey;
+
+      if (body.payment.cashfreeSecretKey !== undefined) {
+        if (!body.payment.cashfreeSecretKey.includes('*')) {
+          settings.payment.cashfreeSecretKey = body.payment.cashfreeSecretKey;
+        }
       }
     }
   }

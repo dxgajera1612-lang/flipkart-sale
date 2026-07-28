@@ -6,7 +6,14 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <meta charSet="utf-8" />
-        <link rel="icon" href="/favicon.ico" />
+        {/* Favicon */}
+        <link rel="icon" href="/t_500x300.jpg" />
+        <link rel="shortcut icon" href="/t_500x300.jpg" />
+        <link rel="apple-touch-icon" href="/t_500x300.jpg" />
+        
+        {/* Meta tags */}
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="msapplication-TileColor" content="#ffffff" />
       </Head>
       <body>
         <Main />

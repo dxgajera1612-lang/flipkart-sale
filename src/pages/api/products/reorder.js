@@ -1,20 +1,19 @@
 // pages/api/products/reorder.js
 import connectToDatabase from '../../../utils/mongodb';
 import Product from '../../../models/Product';
-import { requireAdmin } from '../../../utils/auth';
+import { withAdminAuth } from '../../../middleware/auth';
 
 async function handler(req, res) {
-  // ✅ Await database connection
-  await connectToDatabase();
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({
-      success: false,
-      message: 'Method not allowed',
-    });
-  }
-
   try {
+    await connectToDatabase();
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({
+        success: false,
+        message: 'Method not allowed',
+      });
+    }
+
     const { orderedIds } = req.body;
 
     // Validation
@@ -51,6 +50,7 @@ async function handler(req, res) {
     return res.status(200).json({
       success: true,
       message: 'Product order updated successfully',
+      data: { updatedCount: orderedIds.length },
     });
   } catch (error) {
     console.error('Reorder error:', error);
@@ -63,4 +63,4 @@ async function handler(req, res) {
 }
 
 // ✅ Wrap with admin authentication
-export default requireAdmin(handler);
+export default withAdminAuth(handler);

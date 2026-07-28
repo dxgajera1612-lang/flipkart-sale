@@ -303,7 +303,7 @@ export default function BulkUploadProducts() {
 
       <style jsx>{`
         .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
-        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 32px; }
+        .card { background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 32px; }
         .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 32px; }
         .title { font-size: 28px; font-weight: 700; margin: 0 0 8px 0; }
         .subtitle { font-size: 14px; color: #6b7280; margin: 0; }

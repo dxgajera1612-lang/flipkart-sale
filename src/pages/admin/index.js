@@ -6,6 +6,7 @@ import {
   FiDollarSign,
   FiTrendingUp,
   FiShoppingCart,
+  FiCreditCard,
 } from 'react-icons/fi';
 
 export default function AdminDashboard() {
@@ -16,9 +17,16 @@ export default function AdminDashboard() {
     totalOrders: 0,
     loading: true,
   });
+  const [paytmSummary, setPaytmSummary] = useState({
+    totalTransactions: 0,
+    successCount: 0,
+    totalSuccessAmount: 0,
+    loading: true,
+  });
 
   useEffect(() => {
     fetchStats();
+    fetchPaytmSummary();
   }, []);
 
   const fetchStats = async () => {
@@ -45,6 +53,32 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching stats:', error);
       setStats(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const fetchPaytmSummary = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/paytm-transactions', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setPaytmSummary({
+          totalTransactions: data.stats.totalTransactions || 0,
+          successCount: data.stats.successCount || 0,
+          totalSuccessAmount: data.stats.totalSuccessAmount || 0,
+          loading: false,
+        });
+      } else {
+        setPaytmSummary((prev) => ({ ...prev, loading: false }));
+      }
+    } catch (error) {
+      console.error('Error fetching Paytm summary:', error);
+      setPaytmSummary((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -81,6 +115,16 @@ export default function AdminDashboard() {
       textColor: 'text-orange-600',
       bgColor: 'bg-orange-50',
     },
+    {
+      title: 'Paytm Balance',
+      value: paytmSummary.loading
+        ? '...'
+        : `₹${paytmSummary.totalSuccessAmount.toLocaleString()}`,
+      icon: FiCreditCard,
+      color: 'bg-teal-500',
+      textColor: 'text-teal-600',
+      bgColor: 'bg-teal-50',
+    },
   ];
 
   return (
@@ -95,7 +139,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {statCards.map((stat, index) => {
             const Icon = stat.icon;
             return (

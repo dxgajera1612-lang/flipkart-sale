@@ -29,6 +29,8 @@ export default function SettingsPage() {
     facebookPixel: {
       id: '',
       enabled: false,
+      customCode: '',
+      events: [],
     },
     googleAnalytics: {
       id: '',
@@ -96,9 +98,10 @@ export default function SettingsPage() {
 
       const data = await response.json();
       if (data.success) {
+        setSettings(prev => ({ ...prev, ...data.data }));
         alert('Settings saved successfully!');
       } else {
-        alert('Error saving settings');
+        alert(data.message || 'Error saving settings');
       }
     } catch (error) {
       alert('Error saving settings');
@@ -112,7 +115,6 @@ export default function SettingsPage() {
     { id: 'cashfree', label: 'Cashfree Gateway', icon: FiCreditCard },
     { id: 'tracking', label: 'Analytics & Tracking', icon: FiTrendingUp },
     { id: 'site', label: 'Site Settings', icon: FiGlobe },
-    { id: 'general', label: 'General', icon: FiSettings },
   ];
 
   if (loading) {
@@ -127,42 +129,30 @@ export default function SettingsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="mt-2 text-gray-600">
-            Manage your store configuration and integrations
+      <div className="space-y-5 max-w-6xl mx-auto">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Admin Settings</h1>
+          <p className="max-w-3xl text-sm leading-7 text-slate-600">
+            Configure your store gateway, site branding, and tracking setup in a polished admin workflow with cleaner spacing and clearer UI alignment.
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-slate-200">
+          <nav className="flex flex-wrap gap-3 py-2">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm
-                    ${
-                      activeTab === tab.id
-                        ? 'border-primary-500 text-primary-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                  `}
+                  className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+                    activeTab === tab.id
+                      ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
                 >
-                  <Icon
-                    className={`
-                      -ml-0.5 mr-2 h-5 w-5
-                      ${
-                        activeTab === tab.id
-                          ? 'text-primary-500'
-                          : 'text-gray-400 group-hover:text-gray-500'
-                      }
-                    `}
-                  />
+                  <Icon className={activeTab === tab.id ? 'text-white' : 'text-slate-400'} />
                   {tab.label}
                 </button>
               );
@@ -174,7 +164,7 @@ export default function SettingsPage() {
         <div className="animate-fade-in">
           {/* UPI Settings Tab */}
           {activeTab === 'upi' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="card">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">
                   UPI Payment Configuration
@@ -224,11 +214,10 @@ export default function SettingsPage() {
                       Enable or disable specific UPI payment methods
                     </p>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {[
                         { key: 'Gpay', label: 'Google Pay', color: 'bg-blue-500' },
                         { key: 'Phonepe', label: 'PhonePe', color: 'bg-purple-500' },
-                        { key: 'Phonepe2', label: 'PhonePe 2 (Direct Merchant Pay)', color: 'bg-purple-700' },
                         { key: 'Paytm', label: 'Paytm', color: 'bg-indigo-500' },
                         { key: 'Bhim', label: 'BHIM UPI', color: 'bg-orange-500' },
                         { key: 'WPay', label: 'W-Pay', color: 'bg-green-500' },
@@ -261,49 +250,7 @@ export default function SettingsPage() {
                       ))}
                     </div>
 
-                    {settings.upi.Phonepe2 && (
-                      <div className="p-4 bg-purple-50 border border-purple-100 rounded-lg mt-4 space-y-4">
-                        <h4 className="font-bold text-purple-950 text-sm">PhonePe 2 (Direct Pay) Settings</h4>
-                        
-                        <div>
-                          <label className="label text-purple-900 text-xs font-semibold">PhonePe 2 UPI ID (pa)</label>
-                          <input
-                            type="text"
-                            className="input border-purple-200 focus:border-purple-500 focus:ring-purple-500"
-                            placeholder="shivfashion710704.rzp@rxairtel"
-                            value={settings.upi.Phonepe2UpiId || ''}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                upi: {
-                                  ...settings.upi,
-                                  Phonepe2UpiId: e.target.value,
-                                },
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <label className="label text-purple-900 text-xs font-semibold">PhonePe 2 Merchant Name (pn / tn)</label>
-                          <input
-                            type="text"
-                            className="input border-purple-200 focus:border-purple-500 focus:ring-purple-500"
-                            placeholder="Flipkart Seller"
-                            value={settings.upi.Phonepe2Name || ''}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                upi: {
-                                  ...settings.upi,
-                                  Phonepe2Name: e.target.value,
-                                },
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
+                 
                   </div>
 
                   <button
@@ -321,10 +268,10 @@ export default function SettingsPage() {
 
           {/* Analytics & Tracking Tab */}
           {activeTab === 'tracking' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Facebook Pixel */}
               <div className="card">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
+                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
                   Facebook Pixel
                 </h2>
 
@@ -333,7 +280,7 @@ export default function SettingsPage() {
                     <div>
                       <p className="font-medium text-gray-900">Enable Facebook Pixel</p>
                       <p className="text-sm text-gray-600">
-                        Track conversions and create custom audiences
+                        Track conversions and manage pixel event code from one place.
                       </p>
                     </div>
                     <input
@@ -354,10 +301,10 @@ export default function SettingsPage() {
 
                   <div>
                     <label className="label">Facebook Pixel ID</label>
-                    <textarea
+                    <input
+                      type="text"
                       className="input"
-                      rows="4"
-                      placeholder="Paste your Facebook Pixel code here"
+                      placeholder="Enter your Pixel ID"
                       value={settings.facebookPixel.id}
                       onChange={(e) =>
                         setSettings({
@@ -370,8 +317,143 @@ export default function SettingsPage() {
                       }
                     />
                     <p className="mt-1 text-sm text-gray-500">
-                      Get your Pixel ID from Facebook Events Manager
+                      Get your Pixel ID from Facebook Events Manager.
                     </p>
+                  </div>
+
+                  <div>
+                    <label className="label">Custom Pixel Script</label>
+                    <textarea
+                      className="input font-mono"
+                      rows="6"
+                      placeholder="Paste your full pixel script or event code here"
+                      value={settings.facebookPixel.customCode}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          facebookPixel: {
+                            ...settings.facebookPixel,
+                            customCode: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Use this to store custom pixel or event code snippets that should run with your pixel.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">Custom Pixel Events</p>
+                        <p className="text-sm text-gray-500">
+                          Add event names and code snippets to fire custom pixel events.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() =>
+                          setSettings({
+                            ...settings,
+                            facebookPixel: {
+                              ...settings.facebookPixel,
+                              events: [
+                                ...(settings.facebookPixel.events || []),
+                                { name: '', code: '', enabled: true },
+                              ],
+                            },
+                          })
+                        }
+                      >
+                        Add Event
+                      </button>
+                    </div>
+
+                    {(settings.facebookPixel.events || []).map((event, index) => (
+                      <div key={index} className="rounded-xl border border-gray-200 p-3 bg-slate-50">
+                        <div className="grid gap-4 md:grid-cols-3 items-end">
+                          <div>
+                            <label className="label">Event Name</label>
+                            <input
+                              type="text"
+                              className="input"
+                              value={event.name}
+                              onChange={(e) => {
+                                const updated = [...(settings.facebookPixel.events || [])];
+                                updated[index] = { ...updated[index], name: e.target.value };
+                                setSettings({
+                                  ...settings,
+                                  facebookPixel: {
+                                    ...settings.facebookPixel,
+                                    events: updated,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="label">Event Code</label>
+                            <textarea
+                              className="input font-mono"
+                              rows="3"
+                              value={event.code}
+                              onChange={(e) => {
+                                const updated = [...(settings.facebookPixel.events || [])];
+                                updated[index] = { ...updated[index], code: e.target.value };
+                                setSettings({
+                                  ...settings,
+                                  facebookPixel: {
+                                    ...settings.facebookPixel,
+                                    events: updated,
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 mt-2">
+                          <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                              checked={event.enabled}
+                              onChange={(e) => {
+                                const updated = [...(settings.facebookPixel.events || [])];
+                                updated[index] = { ...updated[index], enabled: e.target.checked };
+                                setSettings({
+                                  ...settings,
+                                  facebookPixel: {
+                                    ...settings.facebookPixel,
+                                    events: updated,
+                                  },
+                                });
+                              }}
+                            />
+                            Enabled
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={() => {
+                              const updated = [...(settings.facebookPixel.events || [])];
+                              updated.splice(index, 1);
+                              setSettings({
+                                ...settings,
+                                facebookPixel: {
+                                  ...settings.facebookPixel,
+                                  events: updated,
+                                },
+                              });
+                            }}
+                          >
+                            Remove Event
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <button
@@ -387,7 +469,7 @@ export default function SettingsPage() {
 
               {/* Google Analytics */}
               <div className="card">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
+                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
                   Google Analytics
                 </h2>
 
@@ -562,136 +644,120 @@ export default function SettingsPage() {
 
           {/* Cashfree Gateway Tab */}
           {activeTab === 'cashfree' && (
-            <div className="space-y-6">
-              <div className="card">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">
-                  Cashfree Gateway Configuration
+            <div className="card space-y-5">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900 mb-2">
+                  Cashfree Gateway
                 </h2>
+                <p className="text-sm leading-6 text-slate-600">
+                  Activate and configure Cashfree payments for your store. Keep only the fields you need for fast gateway management.
+                </p>
+              </div>
 
-                <div className="space-y-4">
-                  {/* Enable Gateway Toggle */}
-                  <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-primary-500 mr-3"></div>
-                      <div>
-                        <span className="font-semibold text-gray-900 block">Enable Cashfree Gateway</span>
-                        <span className="text-xs text-gray-500">Allow customers to pay via card, netbanking, wallets, etc.</span>
-                      </div>
-                    </div>
+              <div className="space-y-4">
+                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                  <div>
+                    <p className="font-semibold text-slate-900">Enable Cashfree</p>
+                    <p className="text-sm text-slate-500">Accept cards, wallets, netbanking, and UPI via Cashfree.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500"
+                    checked={settings.payment?.cashfreeEnabled || false}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        payment: {
+                          ...settings.payment,
+                          cashfreeEnabled: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                </label>
+
+                <div>
+                  <label className="label">Cashfree App ID</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. TEST10384725abc9"
+                    value={settings.payment?.cashfreeAppId || ''}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        payment: {
+                          ...settings.payment,
+                          cashfreeAppId: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Cashfree Secret Key</label>
+                  <div className="relative">
                     <input
-                      type="checkbox"
-                      className="w-5 h-5 text-primary-600 rounded focus:ring-primary-500"
-                      checked={settings.payment?.cashfreeEnabled || false}
+                      type={showSecret ? 'text' : 'password'}
+                      className="input pr-10"
+                      placeholder="Enter your Cashfree Secret Key"
+                      value={settings.payment?.cashfreeSecretKey || ''}
                       onChange={(e) =>
                         setSettings({
                           ...settings,
                           payment: {
                             ...settings.payment,
-                            cashfreeEnabled: e.target.checked,
+                            cashfreeSecretKey: e.target.value,
                           },
                         })
                       }
                     />
-                  </label>
-
-                  {/* App ID */}
-                  <div>
-                    <label className="label">Cashfree App ID (Client ID)</label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="e.g. TEST10384725abc9"
-                      value={settings.payment?.cashfreeAppId || ''}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          payment: {
-                            ...settings.payment,
-                            cashfreeAppId: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-
-                  {/* Secret Key */}
-                  <div>
-                    <label className="label">Cashfree Secret Key</label>
-                    <div className="relative">
-                      <input
-                        type={showSecret ? 'text' : 'password'}
-                        className="input pr-10"
-                        placeholder="Enter your Cashfree Secret Key"
-                        value={settings.payment?.cashfreeSecretKey || ''}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            payment: {
-                              ...settings.payment,
-                              cashfreeSecretKey: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-700"
-                        onClick={() => setShowSecret(!showSecret)}
-                      >
-                        {showSecret ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Environment Mode */}
-                  <div>
-                    <label className="label">Gateway Mode</label>
-                    <select
-                      className="input"
-                      value={settings.payment?.cashfreeMode || 'sandbox'}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          payment: {
-                            ...settings.payment,
-                            cashfreeMode: e.target.value,
-                          },
-                        })
-                      }
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                      onClick={() => setShowSecret(!showSecret)}
                     >
-                      <option value="sandbox">Sandbox (Test Mode)</option>
-                      <option value="production">Production (Live Mode)</option>
-                    </select>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Use sandbox for testing payments without actual money. Switch to production for real transactions.
-                    </p>
+                      {showSecret ? 'Hide' : 'Show'}
+                    </button>
                   </div>
+                </div>
 
-                  {/* Save Button */}
-                  <button
-                    onClick={() => handleSave('payment')}
-                    disabled={saving}
-                    className="btn btn-primary w-full mt-4"
+                <div>
+                  <label className="label">Environment Mode</label>
+                  <select
+                    className="input"
+                    value={settings.payment?.cashfreeMode || 'sandbox'}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        payment: {
+                          ...settings.payment,
+                          cashfreeMode: e.target.value,
+                        },
+                      })
+                    }
                   >
-                    <FiSave className="mr-2" />
-                    {saving ? 'Saving...' : 'Save Cashfree Settings'}
-                  </button>
+                    <option value="sandbox">Sandbox (Test Mode)</option>
+                    <option value="production">Production (Live Mode)</option>
+                  </select>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Sandbox is for testing. Switch to production only after verifying your Cashfree account.
+                  </p>
                 </div>
               </div>
+
+              <button
+                onClick={() => handleSave('payment')}
+                disabled={saving}
+                className="btn btn-primary w-full"
+              >
+                <FiSave className="mr-2" />
+                {saving ? 'Saving...' : 'Save Cashfree Settings'}
+              </button>
             </div>
           )}
 
-          {/* General Settings Tab */}
-          {activeTab === 'general' && (
-            <div className="card">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                General Settings
-              </h2>
-              <p className="text-gray-600">
-                Additional configuration options coming soon...
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </AdminLayout>

@@ -58,6 +58,26 @@ const settingsSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    customCode: {
+      type: String,
+      default: '',
+    },
+    events: [
+      {
+        name: {
+          type: String,
+          default: '',
+        },
+        code: {
+          type: String,
+          default: '',
+        },
+        enabled: {
+          type: Boolean,
+          default: true,
+        },
+      },
+    ],
   },
   
   // Google Analytics

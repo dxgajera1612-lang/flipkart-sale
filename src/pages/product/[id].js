@@ -160,220 +160,6 @@ const CustomImageSlider = ({ images = [], title = '' }) => {
 };
 
 // =============================================
-// SIZE GUIDE MODAL
-// =============================================
-const SizeGuideModal = ({ onClose }) => {
-  const sizeData = [
-    { size: 'S',   chest: '36"', waist: '30"', hip: '38"', length: '27"' },
-    { size: 'M',   chest: '38"', waist: '32"', hip: '40"', length: '28"' },
-    { size: 'L',   chest: '40"', waist: '34"', hip: '42"', length: '29"' },
-    { size: 'XL',  chest: '42"', waist: '36"', hip: '44"', length: '30"' },
-    { size: '2XL', chest: '44"', waist: '38"', hip: '46"', length: '31"' },
-    { size: '3XL', chest: '46"', waist: '40"', hip: '48"', length: '32"' },
-    { size: '4XL', chest: '48"', waist: '42"', hip: '50"', length: '33"' },
-  ];
-
-  // Close on backdrop tap
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  return (
-    <div className="sg-backdrop" onClick={handleBackdropClick}>
-      <div className="sg-sheet">
-        {/* Handle bar */}
-        <div className="sg-handle" />
-
-        {/* Header */}
-        <div className="sg-header">
-          <span className="sg-title">📏 Size Guide</span>
-          <button className="sg-close" onClick={onClose}>✕</button>
-        </div>
-
-        {/* How to measure tip */}
-        <div className="sg-tip">
-          <span className="sg-tip-icon">💡</span>
-          <span className="sg-tip-text">Measure over innerwear for best fit. All measurements are in inches.</span>
-        </div>
-
-        {/* Measure diagram labels */}
-        <div className="sg-measure-labels">
-          {['Chest', 'Waist', 'Hip', 'Length'].map((m) => (
-            <div key={m} className="sg-measure-chip">{m}</div>
-          ))}
-        </div>
-
-        {/* Table */}
-        <div className="sg-table-wrap">
-          <table className="sg-table">
-            <thead>
-              <tr>
-                <th>Size</th>
-                <th>Chest</th>
-                <th>Waist</th>
-                <th>Hip</th>
-                <th>Length</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sizeData.map((row, i) => (
-                <tr key={row.size} className={i % 2 === 0 ? 'even' : ''}>
-                  <td className="size-cell">{row.size}</td>
-                  <td>{row.chest}</td>
-                  <td>{row.waist}</td>
-                  <td>{row.hip}</td>
-                  <td>{row.length}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Fit tip */}
-        <div className="sg-fit-tip">
-          <strong>Not sure?</strong> If you're between sizes, we recommend sizing up for a comfortable fit.
-        </div>
-      </div>
-
-      <style jsx>{`
-        .sg-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.5);
-          z-index: 9999;
-          display: flex;
-          align-items: flex-end;
-          animation: fadeInBg 0.2s ease;
-        }
-        @keyframes fadeInBg {
-          from { background: rgba(0,0,0,0); }
-          to   { background: rgba(0,0,0,0.5); }
-        }
-        .sg-sheet {
-          background: #fff;
-          width: 100%;
-          border-radius: 20px 20px 0 0;
-          padding: 12px 0 32px;
-          animation: slideUp 0.3s cubic-bezier(0.32,0.72,0,1);
-          max-height: 85vh;
-          overflow-y: auto;
-        }
-        @keyframes slideUp {
-          from { transform: translateY(100%); }
-          to   { transform: translateY(0); }
-        }
-        .sg-handle {
-          width: 40px;
-          height: 4px;
-          background: #ddd;
-          border-radius: 2px;
-          margin: 0 auto 14px;
-        }
-        .sg-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 16px 12px;
-          border-bottom: 1px solid #f0f0f0;
-        }
-        .sg-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: #222;
-        }
-        .sg-close {
-          background: #f5f5f5;
-          border: none;
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          font-size: 13px;
-          cursor: pointer;
-          color: #555;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .sg-tip {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          margin: 12px 16px;
-          background: #fdf6ff;
-          border: 1px solid #f3e5f5;
-          border-radius: 8px;
-          padding: 10px 12px;
-        }
-        .sg-tip-icon { font-size: 16px; }
-        .sg-tip-text { font-size: 12px; color: #555; line-height: 1.5; }
-        .sg-measure-labels {
-          display: flex;
-          gap: 8px;
-          padding: 0 16px 12px;
-          flex-wrap: wrap;
-        }
-        .sg-measure-chip {
-          background: #f3e5f5;
-          color: #ffc200;
-          font-size: 11px;
-          font-weight: 600;
-          padding: 4px 10px;
-          border-radius: 20px;
-        }
-        .sg-table-wrap {
-          padding: 0 16px;
-          overflow-x: auto;
-        }
-        .sg-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 13px;
-        }
-        .sg-table thead tr {
-          background: #ffc200;
-        }
-        .sg-table thead th {
-          color: #fff;
-          padding: 10px 12px;
-          text-align: center;
-          font-weight: 600;
-          font-size: 12px;
-        }
-        .sg-table thead th:first-child {
-          border-radius: 8px 0 0 0;
-        }
-        .sg-table thead th:last-child {
-          border-radius: 0 8px 0 0;
-        }
-        .sg-table tbody tr.even {
-          background: #fafafa;
-        }
-        .sg-table tbody td {
-          padding: 10px 12px;
-          text-align: center;
-          color: #444;
-          border-bottom: 1px solid #f0f0f0;
-        }
-        .sg-table tbody .size-cell {
-          font-weight: 700;
-          color: #ffc200;
-        }
-        .sg-fit-tip {
-          margin: 14px 16px 0;
-          background: #fff8e1;
-          border: 1px solid #ffe082;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 12px;
-          color: #666;
-          line-height: 1.5;
-        }
-      `}</style>
-    </div>
-  );
-};
-
-// =============================================
 // DELIVERY TRACKER
 // =============================================
 const DeliveryTracker = () => {
@@ -585,7 +371,7 @@ const ProductSpecs = ({ data }) => {
   ];
 
   return (
-    <div className="specs-section">
+    <div className="specs-section px-0">
       <div className="mt-4 space-y-1">
   <img
     src="/assets/images/review_1.jpg"
@@ -856,16 +642,16 @@ const addToCart = (buyNow = false) => {
             </Link>
           </div>
           <div className="header-right">
-            <button className="icon-btn cart-btn" onClick={(e) => { e.preventDefault(); setmySidenavopen(!mySidenavopen); }}>
-              <svg width={24} height={24} fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6.003 5.183h15.139c.508 0 .908.49.85 1.046l-.762 7.334c-.069.62-.537 1.1-1.103 1.121l-12.074.492-2.05-9.993Z" fill="#C53EAD" />
-                <path d="M11.8 21.367c.675 0 1.22-.597 1.22-1.334 0-.737-.545-1.335-1.22-1.335-.673 0-1.22.598-1.22 1.335s.547 1.334 1.22 1.334ZM16.788 21.367c.674 0 1.22-.597 1.22-1.334 0-.737-.546-1.335-1.22-1.335-.673 0-1.22.598-1.22 1.335s.547 1.334 1.22 1.334Z" fill="#9F2089" />
-                <path d="m2.733 4.169 3.026 1.42 2.528 12.085c.127.609.615 1.036 1.181 1.036h9.615" stroke="#9F2089" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {data133?.length > 0 && (
-                <span className="cart-badge p-2">{data133.length}</span>
-              )}
-            </button>
+            
+                <button
+                  type="button"
+                  className="header-cart-button"onClick={(e) => { e.preventDefault(); setmySidenavopen(!mySidenavopen); }}
+                  aria-label={`Open cart, ${data133.length} items`}
+                  aria-expanded={mySidenavopen}
+                >
+                  <img src="/assets/images/shoppings.png" alt="" />
+                  {data133.length > 0 && <span className="header-cart-count">{data133.length > 99 ? '99+' : data133.length}</span>}
+                </button> 
           </div>
         </div>
 
@@ -930,10 +716,10 @@ const addToCart = (buyNow = false) => {
 
         {/* Bottom Action Bar */}
         <div className="action-bar">
-          <button className="btn btn-outline" onClick={() => addToCart(false)}>
+          <button className="btn " onClick={() => addToCart(false)}>
             Add to Cart
           </button>
-          <button className="btn btn-primary" onClick={() => addToCart(true)}>
+          <button className="btn btn-outline" onClick={() => addToCart(true)}>
             Buy Now
           </button>
         </div>
@@ -1008,3 +794,26 @@ const addToCart = (buyNow = false) => {
 }
 
 export default ProductDetails;
+
+// For dynamic routes, getStaticPaths is required for SSG
+export async function getStaticPaths() {
+  // Return empty paths with fallback to generate pages on-demand
+  return {
+    paths: [],
+    fallback: 'blocking'
+  };
+}
+
+export async function getStaticProps({ params }) {
+  try {
+    return {
+      props: {},
+      revalidate: 60 // Regenerate every 60 seconds
+    };
+  } catch (error) {
+    return {
+      notFound: true,
+      revalidate: 10
+    };
+  }
+}

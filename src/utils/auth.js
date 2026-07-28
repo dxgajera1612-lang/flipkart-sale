@@ -27,15 +27,31 @@ export const decodeToken = (token) => {
 };
 
 export const authenticateUser = (handler) => {
-   return async (req, res) => {
-    req.user = { role: 'admin' };
+  return async (req, res) => {
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const user = token ? verifyToken(token) : null;
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    req.user = user;
     return handler(req, res);
   };
 };
 
 export const requireAdmin = (handler) => {
   return async (req, res) => {
-    req.user = { role: 'admin' };
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const user = token ? verifyToken(token) : null;
+
+    if (!user || user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    req.user = user;
     return handler(req, res);
   };
 };

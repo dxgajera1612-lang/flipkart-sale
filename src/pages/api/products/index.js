@@ -1,7 +1,7 @@
 // pages/api/products/index.js
 import connectToDatabase from '../../../utils/mongodb';
 import Product from '../../../models/Product';
-import { requireAdmin } from '../../../utils/auth';
+import { withAdminAuth } from '../../../middleware/auth';
 
 async function handler(req, res) {
   await connectToDatabase();
@@ -14,7 +14,8 @@ async function handler(req, res) {
         return await handleGet(req, res);
 
       case 'POST':
-        return requireAdmin(handlePost)(req, res);
+        // Protect POST with admin auth
+        return withAdminAuth(handlePost)(req, res);
 
       default:
         return res.status(405).json({

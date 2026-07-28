@@ -32,7 +32,7 @@ async function ensureAdminExists() {
     // Dynamic import to avoid circular dependency
     const User = (await import('../models/User.js')).default;
 
-    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin@gmail.com";
+    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin1@gmail.com";
     
     // Check if admin already exists
     const existingAdmin = await User.findOne({ email: adminEmail });

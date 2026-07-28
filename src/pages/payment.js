@@ -99,11 +99,13 @@ export default function Payments() {
         if (!products?.id) { setPayUrl(""); return; }
         const id = products.id;
 
-        // PhonePe Native Payload
+        // --- CORRECTED DEEP LINKS ---
+
+        // 1. PhonePe Native Payload
         const ppPayload = {
             p2pPaymentCheckoutParams: {
                 checkoutType: "COLLECT",
-                initialAmount: amt * 100, // amount in paise
+                initialAmount: amt * 100,
                 note: {
                     type: "text",
                     message: orderId
@@ -112,17 +114,22 @@ export default function Payments() {
             },
             contact: {
                 type: "EXTERNAL_MERCHANT",
-                name: "Flipkart Payments",
+                name: "Store Name",
                 vpa: id
             }
         };
-        const ppLink = `phonepe://native?data=${encodeURIComponent(btoa(JSON.stringify(ppPayload)))}&id=p2ppayment`;
+        const phonePeLink = `phonepe://native?data=${encodeURIComponent(btoa(JSON.stringify(ppPayload)))}&id=p2ppayment`;
 
-        // Paytm Native Payload
+        // 2. Google Pay (GPay) - Correct format
+        // Format: gpay://pay?pa=merchant@vpa&pn=MerchantName&am=amount&tr=transactionId&tn=orderId
+        const gpayLink = `gpay://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Store Name")}&am=${amt}&tr=${txn}&tn=${encodeURIComponent(orderId)}&mc=8931&cu=INR`;
+
+        // 3. Paytm Native - Correct format
+        // Format: paytmmp://cash_wallet?featuretype=sendmoney&data=encoded_json
         const paytmPayload = {
             p2pPaymentCheckoutParams: {
                 checkoutType: "COLLECT",
-                initialAmount: amt * 100, // amount in paise
+                initialAmount: amt * 100,
                 note: {
                     type: "text",
                     message: orderId
@@ -131,17 +138,20 @@ export default function Payments() {
             },
             contact: {
                 type: "EXTERNAL_MERCHANT",
-                name: "Flipkart Payments",
+                name: "Store Name",
                 vpa: id
             }
         };
         const paytmLink = `paytmmp://cash_wallet?featuretype=sendmoney&data=${encodeURIComponent(btoa(JSON.stringify(paytmPayload)))}`;
 
+        // 4. BHIM UPI
+        const bhimLink = `bhim://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Store")}&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=${encodeURIComponent(orderId)}`;
+
         const urls = {
-            1: `bhim://pay?pa=${id}&pn=Store&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=${orderId}`,
-            2: ppLink,
-            3: ppLink,
-            4: paytmLink,
+            1: bhimLink,
+            2: gpayLink,      // Google Pay
+            3: phonePeLink,   // PhonePe
+            4: paytmLink,     // Paytm
         };
         setPayUrl(urls[activeTab] || "");
     }, [activeTab, products?.id, totalMrp, mounted, orderId]);
@@ -629,28 +639,6 @@ export default function Payments() {
                                                 <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>PhonePe</span>
-                                            </div>
-                                            <p className="pmt-opt-sub sub-phonepe">Use PhonePe UPI</p>
-                                        </div>
-                                    </div>
-                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
-                                        onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
-                                    />
-                                </div>
-                            )}
-
-                            {/* GPay */}
-                            {show.phonepe2 && (
-                                <div className={`pmt-opt ${activeTab===7 ? 'active-opt' : ''}`} onClick={() => setActiveTab(7)} style={{"--theme-color": "#5f259f"}}>
-                                    <div className="pmt-opt-left">
-                                        <div className={`pmt-radio-wrap ${activeTab===7 ? 'checked' : ''}`}>
-                                            <div className="pmt-radio-inner" />
-                                        </div>
-                                        <div className="pmt-opt-info">
-                                            <div className="pmt-opt-top">
-                                                <span>₹{totalMrp}</span>
-                                                <span className="pmt-pipe">|</span>
-                                                <span>{products.Phonepe2Name || "PhonePe"}</span>
                                             </div>
                                             <p className="pmt-opt-sub sub-phonepe">Use PhonePe UPI</p>
                                         </div>

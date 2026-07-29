@@ -52,13 +52,17 @@ const Ordersummary = () => {
     const itemCount = cart.reduce((s, p) => s + Number(p.quantity || 1), 0);
 
     useEffect(() => {
-        if (order_id && (lastOrder || cart.length > 0) && !tracked) {
+        if (!order_id) return;
+        const purchaseKey = `fb_purchase_tracked_${order_id}`;
+        
+        if ((lastOrder || cart.length > 0) && !tracked && !sessionStorage.getItem(purchaseKey)) {
             trackPurchase({
                 orderId: order_id,
                 items: lastOrder?.items || cart,
                 totalValue: lastOrder?.total || totalSellingPrice || 0,
                 currency: 'INR'
             });
+            sessionStorage.setItem(purchaseKey, 'true');
             setTracked(true);
         }
     }, [order_id, lastOrder, cart, totalSellingPrice, tracked]);

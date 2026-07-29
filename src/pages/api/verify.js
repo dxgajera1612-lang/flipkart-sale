@@ -46,6 +46,40 @@ export default async function handler(req, res) {
     });
 
     if (match) {
+      // Fire server-side Meta CAPI Purchase Event asynchronously
+      (async () => {
+        try {
+          const mainDb = client.db('www3');
+          const settingsObj = await mainDb.collection('settings').findOne({});
+          const pixel = settingsObj?.facebookPixel || {};
+          
+          if (pixel.enabled && pixel.id && pixel.capiAccessToken) {
+            const { sendServerCapiEvent } = await import('../../utils/facebookCapi');
+            const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
+            const userAgent = req.headers['user-agent'] || '';
+
+            await sendServerCapiEvent({
+              eventName: 'Purchase',
+              pixelId: pixel.id,
+              accessToken: pixel.capiAccessToken,
+              testEventCode: pixel.testEventCode || '',
+              userData: {
+                clientIp: Array.isArray(clientIp) ? clientIp[0] : clientIp,
+                userAgent,
+              },
+              customData: {
+                order_id: match.orderId || queryKey,
+                value: parseFloat(match.amount) || 0,
+                currency: 'INR',
+              },
+              eventId: `fb_purchase_tracked_${match.orderId || queryKey}`,
+            });
+          }
+        } catch (capiErr) {
+          console.error('[Verify CAPI Background Error]:', capiErr);
+        }
+      })();
+
       return res.status(200).json({
         verified: true,
         matchType: 'COMMENT_REMARK_MATCH',

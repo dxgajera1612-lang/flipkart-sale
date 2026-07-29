@@ -31,10 +31,13 @@ const Address = () => {
 
   useEffect(() => {
     try {
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      const total = cart.reduce((s, p) => s + Math.round((p.sellingPrice || p.selling_price || p.price || 0) * (p.quantity || 1)), 0);
-      if (cart.length > 0) {
-        trackInitiateCheckout(cart, total);
+      if (!sessionStorage.getItem("fb_checkout_tracked")) {
+        const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+        const total = cart.reduce((s, p) => s + Math.round((p.sellingPrice || p.selling_price || p.price || 0) * (p.quantity || 1)), 0);
+        if (cart.length > 0) {
+          trackInitiateCheckout(cart, total);
+          sessionStorage.setItem("fb_checkout_tracked", "true");
+        }
       }
     } catch (err) {
       console.error("FB Pixel InitiateCheckout error:", err);
@@ -76,15 +79,17 @@ const Address = () => {
     }
     setSubmitting(true);
     try {
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          address: values.house,
-          name: values.fname,
-          phone: Number(values.mobile),
-        })
-      );
-      trackAddShippingInfo('standard');
+      const userData = {
+        address: values.house,
+        name: values.fname,
+        phone: Number(values.mobile),
+      };
+      localStorage.setItem("user", JSON.stringify(userData));
+      
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const total = cart.reduce((s, p) => s + Math.round((p.sellingPrice || p.selling_price || p.price || 0) * (p.quantity || 1)), 0);
+      
+      trackAddShippingInfo('Standard', cart, total);
       router.push("/ordersummdary");
     } catch (err) {
       console.error("Failed to save address:", err);

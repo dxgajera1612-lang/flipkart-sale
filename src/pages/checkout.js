@@ -126,21 +126,8 @@ export default function Checkout() {
       const orderId = 'ORD-' + Date.now();
       const total = calculateTotal();
 
-      // Track Purchase event
-      trackPurchase({
-        orderId: orderId,
-        items: cart,
-        totalValue: total,
-        currency: 'INR',
-      });
-
-      // Simulate order placement (you can add API call here)
+      // Store order details & redirect to order confirmation (where canonical Purchase event fires)
       setTimeout(() => {
-        // Clear cart
-        localStorage.removeItem('cart');
-        window.dispatchEvent(new Event('storage'));
-
-        // Store order details
         const orderDetails = {
           orderId,
           items: cart,
@@ -151,9 +138,9 @@ export default function Checkout() {
         };
         localStorage.setItem('lastOrder', JSON.stringify(orderDetails));
 
-        // Redirect to order summary
-        router.push('/order-summary');
-      }, 2000);
+        // Redirect to canonical order summary page
+        router.push(`/ordersummdary?order_id=${orderId}`);
+      }, 1500);
     } catch (error) {
       toast.error('Failed to place order');
       setLoading(false);

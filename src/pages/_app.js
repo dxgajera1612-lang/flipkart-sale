@@ -33,8 +33,21 @@ function MyApp({ Component, pageProps }) {
             const pixelId = data.data.facebookPixel.id;
             console.log('Initializing Facebook Pixel:', pixelId);
             
-            // Initialize pixel (this is synchronous, not async)
-            initFacebookPixel(pixelId);
+            // Retrieve saved user details for Meta Advanced Matching
+            let userData = {};
+            try {
+              const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+              if (savedUser) {
+                userData = {
+                  phone: savedUser.phone || '',
+                  name: savedUser.name || '',
+                  email: savedUser.email || '',
+                };
+              }
+            } catch (_) {}
+
+            // Initialize pixel with Advanced Matching parameters
+            initFacebookPixel(pixelId, userData);
             
             // Mark pixel as loaded and track initial page view
             setPixelLoaded(true);

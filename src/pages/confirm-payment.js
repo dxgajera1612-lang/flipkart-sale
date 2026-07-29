@@ -125,6 +125,7 @@ export default function ConfirmPayment() {
                         totalValue: purchaseValue || parseFloat(amount) || 0,
                         currency: 'INR'
                     });
+                    sessionStorage.setItem(`fb_purchase_tracked_${targetId}`, 'true');
                 } catch(_) {}
                 setTimeout(() => {
 

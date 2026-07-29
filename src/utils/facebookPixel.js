@@ -1,14 +1,18 @@
 // utils/facebookPixel.js
 
 /**
- * Facebook Pixel Events for E-Commerce
- * Comprehensive tracking for optimal ad performance
+ * Clean & Standardized Meta (Facebook) Pixel Helper for E-Commerce
+ * Modeled after standard Shopify Meta Pixel architecture
  */
 
 export const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID || process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
 
-// Initialize Facebook Pixel
-export const initFacebookPixel = (pixelId) => {
+/**
+ * Initialize Facebook Pixel with optional Advanced Matching user data
+ * @param {String} pixelId - Facebook Pixel ID
+ * @param {Object} userData - Advanced Matching details { em, ph, fn, ln, ct, st, zp, country }
+ */
+export const initFacebookPixel = (pixelId, userData = {}) => {
   if (typeof window === 'undefined') return;
   
   if (!pixelId) {
@@ -34,7 +38,17 @@ export const initFacebookPixel = (pixelId) => {
     s.parentNode.insertBefore(t,s)
   }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js'));
 
-  window.fbq('init', pixelId);
+  // Format advanced matching data if present
+  const advancedMatching = {};
+  if (userData.email) advancedMatching.em = String(userData.email).toLowerCase().trim();
+  if (userData.phone) advancedMatching.ph = String(userData.phone).replace(/\D/g, '');
+  if (userData.name) {
+    const parts = userData.name.trim().split(' ');
+    advancedMatching.fn = parts[0]?.toLowerCase();
+    if (parts.length > 1) advancedMatching.ln = parts.slice(1).join(' ').toLowerCase();
+  }
+
+  window.fbq('init', pixelId, Object.keys(advancedMatching).length > 0 ? advancedMatching : undefined);
   console.log('✅ Facebook Pixel initialized:', pixelId);
 };
 
@@ -45,308 +59,189 @@ export const pageview = () => {
   }
 };
 
-// Standard Events for E-Commerce
+// -------------------------------------------------------------
+// CORE SHOPIFY-STANDARD E-COMMERCE EVENTS
+// -------------------------------------------------------------
 
 /**
- * ViewContent - Track when user views a product
- * @param {Object} product - Product object with details
+ * 1. ViewContent - Track when user views a product detail page
  */
-export const trackViewContent = (product) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'ViewContent', {
-      content_name: product.title || product.name,
+export const trackViewContent = (product, eventId = null) => {
+  if (typeof window !== 'undefined' && window.fbq && product) {
+    const price = parseFloat(product.sellingPrice || product.price || product.selling_price || 0);
+    const productId = String(product._id || product.id || '');
+
+    const eventData = {
+      content_name: product.title || product.title2 || product.name || 'Product',
       content_category: product.category || 'General',
-      content_ids: [product._id || product.id],
+      content_ids: productId ? [productId] : [],
       content_type: 'product',
-      value: product.sellingPrice || product.price || 0,
+      value: price,
       currency: 'INR',
-    });
-    console.log('📊 FB Pixel: ViewContent tracked', product.title);
+    };
+
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('track', 'ViewContent', eventData, options);
+    console.log('📊 [Meta Pixel] ViewContent:', eventData.content_name, '₹' + price);
   }
 };
 
 /**
- * AddToCart - Track when user adds item to cart
- * @param {Object} product - Product object
- * @param {Number} quantity - Quantity added
+ * 2. AddToCart - Track when user adds an item to cart
  */
-export const trackAddToCart = (product, quantity = 1) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'AddToCart', {
-      content_name: product.title || product.name,
+export const trackAddToCart = (product, quantity = 1, eventId = null) => {
+  if (typeof window !== 'undefined' && window.fbq && product) {
+    const price = parseFloat(product.sellingPrice || product.price || product.selling_price || 0);
+    const productId = String(product._id || product.id || '');
+    const qty = parseInt(quantity) || 1;
+
+    const eventData = {
+      content_name: product.title || product.title2 || product.name || 'Product',
       content_category: product.category || 'General',
-      content_ids: [product._id || product.id],
+      content_ids: productId ? [productId] : [],
       content_type: 'product',
-      value: (product.sellingPrice || product.price || 0) * quantity,
+      value: price * qty,
       currency: 'INR',
-      num_items: quantity,
-    });
-    console.log('🛒 FB Pixel: AddToCart tracked', product.title, 'x', quantity);
+      num_items: qty,
+    };
+
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('track', 'AddToCart', eventData, options);
+    console.log('🛒 [Meta Pixel] AddToCart:', eventData.content_name, 'x' + qty);
   }
 };
 
 /**
- * InitiateCheckout - Track when user starts checkout
- * @param {Array} cartItems - Array of cart items
- * @param {Number} totalValue - Total cart value
+ * 3. InitiateCheckout - Track when user enters the checkout flow
  */
-export const trackInitiateCheckout = (cartItems, totalValue) => {
+export const trackInitiateCheckout = (cartItems = [], totalValue = 0, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {
-    const contentIds = cartItems.map(item => item._id || item.id);
-    const contents = cartItems.map(item => ({
-      id: item._id || item.id,
-      quantity: item.quantity || 1,
-      item_price: item.sellingPrice || item.price || 0,
-    }));
-
-    window.fbq('track', 'InitiateCheckout', {
-      content_ids: contentIds,
-      contents: contents,
-      content_type: 'product',
-      value: totalValue,
-      currency: 'INR',
-      num_items: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
-    });
-    console.log('💳 FB Pixel: InitiateCheckout tracked, value:', totalValue);
-  }
-};
-
-/**
- * Purchase - Track successful purchase (MOST IMPORTANT)
- * @param {Object} orderData - Order details
- */
-export const trackPurchase = (orderData) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    const { orderId, items, totalValue, currency = 'INR' } = orderData;
-    
-    const contentIds = items.map(item => item._id || item.id);
+    const items = Array.isArray(cartItems) ? cartItems : [];
+    const contentIds = items.map(item => String(item._id || item.id || '')).filter(Boolean);
     const contents = items.map(item => ({
-      id: item._id || item.id,
-      quantity: item.quantity || 1,
-      item_price: item.sellingPrice || item.price || 0,
+      id: String(item._id || item.id || ''),
+      quantity: parseInt(item.quantity) || 1,
+      item_price: parseFloat(item.sellingPrice || item.price || item.selling_price || 0),
     }));
 
-    window.fbq('track', 'Purchase', {
+    const val = parseFloat(totalValue) || items.reduce((sum, i) => sum + (parseFloat(i.sellingPrice || i.price || 0) * (parseInt(i.quantity) || 1)), 0);
+
+    const eventData = {
       content_ids: contentIds,
       contents: contents,
       content_type: 'product',
-      value: totalValue,
-      currency: currency,
-      num_items: items.reduce((sum, item) => sum + (item.quantity || 1), 0),
-      order_id: orderId,
-    });
-    console.log('✅ FB Pixel: Purchase tracked, Order ID:', orderId, 'Value:', totalValue);
+      value: val,
+      currency: 'INR',
+      num_items: items.reduce((sum, item) => sum + (parseInt(item.quantity) || 1), 0),
+    };
+
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('track', 'InitiateCheckout', eventData, options);
+    console.log('💳 [Meta Pixel] InitiateCheckout: ₹' + val, 'Items:', eventData.num_items);
   }
 };
 
 /**
- * AddToWishlist - Track when user adds to wishlist
- * @param {Object} product - Product object
+ * 4. AddShippingInfo - Track when user submits shipping details
  */
-export const trackAddToWishlist = (product) => {
+export const trackAddShippingInfo = (shippingTier = 'Standard', cartItems = [], totalValue = 0, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'AddToWishlist', {
-      content_name: product.title || product.name,
-      content_category: product.category || 'General',
-      content_ids: [product._id || product.id],
+    const items = Array.isArray(cartItems) ? cartItems : [];
+    const contentIds = items.map(item => String(item._id || item.id || '')).filter(Boolean);
+
+    const eventData = {
+      content_ids: contentIds,
+      value: parseFloat(totalValue) || 0,
+      currency: 'INR',
+      shipping_tier: shippingTier,
+    };
+
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('track', 'AddShippingInfo', eventData, options);
+    console.log('🚚 [Meta Pixel] AddShippingInfo:', shippingTier);
+  }
+};
+
+/**
+ * 5. AddPaymentInfo - Track when user selects/enters payment method
+ */
+export const trackAddPaymentInfo = (paymentMethod = 'UPI', totalValue = 0, cartItems = [], eventId = null) => {
+  if (typeof window !== 'undefined' && window.fbq) {
+    const items = Array.isArray(cartItems) ? cartItems : [];
+    const contentIds = items.map(item => String(item._id || item.id || '')).filter(Boolean);
+
+    const eventData = {
+      payment_category: 'checkout',
+      payment_option: paymentMethod,
+      content_ids: contentIds,
+      value: parseFloat(totalValue) || 0,
+      currency: 'INR',
+    };
+
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('track', 'AddPaymentInfo', eventData, options);
+    console.log('💳 [Meta Pixel] AddPaymentInfo:', paymentMethod, '₹' + totalValue);
+  }
+};
+
+/**
+ * 6. Purchase - Track successful order confirmation (CANONICAL PURCHASE EVENT)
+ */
+export const trackPurchase = (orderData = {}, eventId = null) => {
+  if (typeof window !== 'undefined' && window.fbq) {
+    const { orderId, items = [], totalValue = 0, currency = 'INR' } = orderData;
+    const itemList = Array.isArray(items) ? items : [];
+
+    const contentIds = itemList.map(item => String(item._id || item.id || '')).filter(Boolean);
+    const contents = itemList.map(item => ({
+      id: String(item._id || item.id || ''),
+      quantity: parseInt(item.quantity) || 1,
+      item_price: parseFloat(item.sellingPrice || item.price || item.selling_price || 0),
+    }));
+
+    const val = parseFloat(totalValue) || itemList.reduce((sum, i) => sum + (parseFloat(i.sellingPrice || i.price || 0) * (parseInt(i.quantity) || 1)), 0);
+
+    const eventData = {
+      content_ids: contentIds,
+      contents: contents,
       content_type: 'product',
-      value: product.sellingPrice || product.price || 0,
-      currency: 'INR',
-    });
-    console.log('❤️ FB Pixel: AddToWishlist tracked', product.title);
+      value: val,
+      currency: currency,
+      num_items: itemList.reduce((sum, item) => sum + (parseInt(item.quantity) || 1), 0),
+      order_id: String(orderId || ''),
+    };
+
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('track', 'Purchase', eventData, options);
+    console.log('✅ [Meta Pixel] Purchase tracked! Order:', orderId, 'Value: ₹' + val);
   }
 };
 
-/**
- * Search - Track when user searches
- * @param {String} searchQuery - Search term
- */
-export const trackSearch = (searchQuery) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'Search', {
-      search_string: searchQuery,
-    });
-    console.log('🔍 FB Pixel: Search tracked:', searchQuery);
-  }
-};
+// -------------------------------------------------------------
+// OPTIONAL HELPER & UTILITY FUNCTIONS
+// -------------------------------------------------------------
 
-/**
- * ViewCategory - Track when user views a category
- * @param {String} categoryName - Category name
- * @param {Number} productCount - Number of products in category
- */
-export const trackViewCategory = (categoryName, productCount = 0) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'ViewCategory', {
-      category: categoryName,
-      num_items: productCount,
-    });
-    console.log('📁 FB Pixel: ViewCategory tracked:', categoryName);
-  }
-};
-
-/**
- * CompleteRegistration - Track user registration
- * @param {String} registrationMethod - How user registered
- */
-export const trackCompleteRegistration = (registrationMethod = 'email') => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'CompleteRegistration', {
-      status: 'completed',
-      registration_method: registrationMethod,
-    });
-    console.log('👤 FB Pixel: CompleteRegistration tracked');
-  }
-};
-
-/**
- * Lead - Track lead generation
- * @param {Object} leadData - Lead information
- */
-export const trackLead = (leadData = {}) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'Lead', leadData);
-    console.log('📝 FB Pixel: Lead tracked');
-  }
-};
-
-/**
- * Contact - Track when user contacts support
- */
-export const trackContact = () => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'Contact');
-    console.log('📞 FB Pixel: Contact tracked');
-  }
-};
-
-/**
- * Custom Event - Track custom events
- * @param {String} eventName - Custom event name
- * @param {Object} data - Event data
- */
-export const trackCustomEvent = (eventName, data = {}) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', eventName, data);
-    console.log('⚡ FB Pixel: Custom event tracked:', eventName);
-  }
-};
-
-// Advanced Tracking
-
-/**
- * Track when user removes item from cart
- */
-export const trackRemoveFromCart = (product, quantity = 1) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'RemoveFromCart', {
-      content_name: product.title || product.name,
-      content_ids: [product._id || product.id],
-      value: (product.sellingPrice || product.price || 0) * quantity,
-      currency: 'INR',
-      num_items: quantity,
-    });
-    console.log('🗑️ FB Pixel: RemoveFromCart tracked', product.title);
-  }
-};
-
-/**
- * Track when user updates cart quantity
- */
-export const trackUpdateCart = (cartItems, totalValue) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'UpdateCart', {
-      content_ids: cartItems.map(item => item._id || item.id),
-      value: totalValue,
-      currency: 'INR',
-      num_items: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
-    });
-    console.log('🔄 FB Pixel: UpdateCart tracked');
-  }
-};
-
-/**
- * Track payment info addition
- * @param {String} paymentMethod - Payment method name
- * @param {Number} value - Cart total value (for Revenue optimization)
- */
-export const trackAddPaymentInfo = (paymentMethod, value = 0) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('track', 'AddPaymentInfo', {
-      payment_method: paymentMethod,
-      value: value,
-      currency: 'INR',
-    });
-    console.log('💳 FB Pixel: AddPaymentInfo tracked:', paymentMethod, '₹' + value);
-  }
-};
-
-/**
- * Track shipping info addition
- */
-export const trackAddShippingInfo = (shippingMethod) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'AddShippingInfo', {
-      shipping_method: shippingMethod,
-    });
-    console.log('🚚 FB Pixel: AddShippingInfo tracked');
-  }
-};
-
-/**
- * Track when user views cart
- */
-export const trackViewCart = (cartItems, totalValue) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'ViewCart', {
-      content_ids: cartItems.map(item => item._id || item.id),
-      value: totalValue,
-      currency: 'INR',
-      num_items: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
-    });
-    console.log('👁️ FB Pixel: ViewCart tracked');
-  }
-};
-
-/**
- * Track product impressions (when products are visible)
- */
-export const trackProductImpression = (products) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'ProductImpression', {
-      content_ids: products.map(p => p._id || p.id),
-      num_items: products.length,
-    });
-    console.log('👀 FB Pixel: ProductImpression tracked, count:', products.length);
-  }
-};
-
-/**
- * Track when user shares a product
- */
-export const trackShare = (product, shareMethod = 'social') => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    window.fbq('trackCustom', 'Share', {
-      content_name: product.title || product.name,
-      content_id: product._id || product.id,
-      share_method: shareMethod,
-    });
-    console.log('📤 FB Pixel: Share tracked');
-  }
-};
-
-// Helper function to check if pixel is loaded
 export const isPixelLoaded = () => {
   return typeof window !== 'undefined' && typeof window.fbq !== 'undefined';
 };
 
-// Get pixel ID from settings
+export const trackRemoveFromCart = (product, quantity = 1) => {
+  if (typeof window !== 'undefined' && window.fbq && product) {
+    console.log('🗑️ [Meta Pixel] RemoveFromCart item:', product.title || product.name);
+  }
+};
+
+export const trackViewCart = (cartItems = [], totalValue = 0) => {
+  if (typeof window !== 'undefined' && window.fbq) {
+    console.log('👁️ [Meta Pixel] ViewCart:', cartItems.length, 'items');
+  }
+};
+
 export const getPixelId = async () => {
   try {
     const response = await fetch('/api/settings');
     const data = await response.json();
-    
-    if (data.success && data.data.facebookPixel?.enabled && data.data.facebookPixel?.id) {
+    if (data.success && data.data?.facebookPixel?.enabled && data.data?.facebookPixel?.id) {
       return data.data.facebookPixel.id;
     }
     return null;
@@ -355,3 +250,4 @@ export const getPixelId = async () => {
     return null;
   }
 };
+

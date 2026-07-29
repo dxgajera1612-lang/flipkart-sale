@@ -62,6 +62,16 @@ const settingsSchema = new mongoose.Schema({
       type: String,
       default: '',
     },
+    capiAccessToken: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    testEventCode: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     events: [
       {
         name: {

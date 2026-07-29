@@ -72,7 +72,7 @@ export default function Payments() {
     }, []);
 
     useEffect(() => {
-        if (activeTab) {
+        if (activeTab && cart.length > 0) {
             const methodNames = {
                 1: "BHIM UPI",
                 2: "GPay",
@@ -80,8 +80,8 @@ export default function Payments() {
                 4: "Paytm Native",
                 6: "Card / Net Banking"
             };
-            const cartValue = cart.reduce((s,p) => s + Math.round((p.sellingPrice||0)*(p.quantity||1)), 0);
-            trackAddPaymentInfo(methodNames[activeTab] || "UPI", cartValue);
+            const cartValue = cart.reduce((s,p) => s + Math.round((parseFloat(p.sellingPrice||p.price||0))*(parseInt(p.quantity||1))), 0);
+            trackAddPaymentInfo(methodNames[activeTab] || "UPI", cartValue, cart);
         }
     }, [activeTab, cart]);
 

@@ -30,6 +30,8 @@ export default function SettingsPage() {
       id: '',
       enabled: false,
       customCode: '',
+      capiAccessToken: '',
+      testEventCode: '',
       events: [],
     },
     googleAnalytics: {
@@ -318,6 +320,50 @@ export default function SettingsPage() {
                     />
                     <p className="mt-1 text-sm text-gray-500">
                       Get your Pixel ID from Facebook Events Manager.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="label">Meta Conversions API (CAPI) Access Token <span className="text-xs text-emerald-600 font-semibold">(10/10 Tracking)</span></label>
+                    <input
+                      type="password"
+                      className="input"
+                      placeholder="EAA..."
+                      value={settings.facebookPixel.capiAccessToken || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          facebookPixel: {
+                            ...settings.facebookPixel,
+                            capiAccessToken: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Server-side Access Token generated from Meta Events Manager &gt; Settings &gt; Generate Access Token.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="label">Meta Test Event Code (Optional)</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="TEST12345"
+                      value={settings.facebookPixel.testEventCode || ''}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          facebookPixel: {
+                            ...settings.facebookPixel,
+                            testEventCode: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Found in Meta Events Manager &gt; Test Events (e.g. TEST12345).
                     </p>
                   </div>
 

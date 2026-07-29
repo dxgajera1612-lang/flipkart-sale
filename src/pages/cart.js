@@ -101,13 +101,7 @@ function Cart() {
                 "\n        body,\n        a,\n        p,\n        span,\n        div,\n        input,\n        button,\n        h1,\n        h2,\n        h3,\n        h4,\n        h5,\n        h6,\n        button,\n        input,\n        optgroup,\n        select,\n        textarea {\n            font-family: 'Poppins', sans-serif !important;\n        }\n    ",
             }}
           />
-          {/* Meta Pixel Code */}
-          <noscript>
-            &lt;img height="1" width="1" style="display:none"
-            src="https://www.facebook.com/tr?id=239159289163632&amp;ev=PageView&amp;noscript=1"
-            /&gt;
-          </noscript>
-          {/* End Meta Pixel Code */}
+
           <link
             rel="stylesheet"
             href="chrome-extension://mhnlakgilnojmhinhkckjpncpbhabphi/content.css"

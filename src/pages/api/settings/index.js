@@ -98,6 +98,8 @@ async function handleGet(req, res) {
     id: pixelId,
     enabled: pixelEnabled,
     customCode: isAdmin ? (settings.facebookPixel?.customCode || '') : '',
+    capiAccessToken: isAdmin ? (settings.facebookPixel?.capiAccessToken || process.env.FB_CAPI_ACCESS_TOKEN || '') : '',
+    testEventCode: isAdmin ? (settings.facebookPixel?.testEventCode || process.env.FB_TEST_EVENT_CODE || '') : '',
     events: isAdmin ? (settings.facebookPixel?.events || []) : [],
   };
 
@@ -183,6 +185,8 @@ async function handlePut(req, res) {
       settings.facebookPixel.id = body.facebookPixel.id ?? settings.facebookPixel.id;
       settings.facebookPixel.enabled = !!body.facebookPixel.enabled;
       settings.facebookPixel.customCode = body.facebookPixel.customCode ?? settings.facebookPixel.customCode;
+      settings.facebookPixel.capiAccessToken = body.facebookPixel.capiAccessToken ?? settings.facebookPixel.capiAccessToken;
+      settings.facebookPixel.testEventCode = body.facebookPixel.testEventCode ?? settings.facebookPixel.testEventCode;
       if (Array.isArray(body.facebookPixel.events)) {
         settings.facebookPixel.events = body.facebookPixel.events;
       }

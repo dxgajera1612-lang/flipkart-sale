@@ -135,7 +135,7 @@ export default function Payments() {
                 vpa: id
             }
         };
-        const paytmLink = `paytmmp://cash_wallet?pa=${id}&pn=${encodeURIComponent("Flipkart Payments")}&am=${amt}&cu=INR&tn=${txn}&tr=${txn}&url=&mode=02&purpose=00&orgid=159002&sign=MEQCIDsRrRTBN5u+J9c16TUURJ4IMiPQQ/Sj1WXW7Ane85mYAiBuwEHt/lPXmMKRjFFnz6+jekgTsKWwyTx44qlCXFkfpQ==&featuretype=money_transfer`;
+        const paytmLink = `paytmmp://cash_wallet?pa=${id}&pn=${encodeURIComponent("Flipkart Payments")}&am=${amt}&cu=INR&tn=${orderId}&tr=${orderId}&url=&mode=02&purpose=00&orgid=159002&sign=MEQCIDsRrRTBN5u+J9c16TUURJ4IMiPQQ/Sj1WXW7Ane85mYAiBuwEHt/lPXmMKRjFFnz6+jekgTsKWwyTx44qlCXFkfpQ==&featuretype=money_transfer`;
 
         const urls = {
             1: `bhim://pay?pa=${id}&pn=Store&am=${amt}&tr=${txn}&mc=8931&cu=INR&tn=${orderId}`,

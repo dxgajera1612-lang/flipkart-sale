@@ -1,7 +1,7 @@
 // pages/api/products/[id].js
 import connectToDatabase from '../../../utils/mongodb';
 import Product from '../../../models/Product';
-import { requireAdmin } from '../../../utils/auth';
+import { withAdminAuth } from '../../../middleware/auth';
 
 async function handler(req, res) {
   // ✅ Await database connection
@@ -23,10 +23,10 @@ async function handler(req, res) {
         return await handleGet(req, res, id);
       
       case 'PUT':
-        return requireAdmin(handlePut)(req, res);
+        return withAdminAuth(handlePut)(req, res);
       
       case 'DELETE':
-        return requireAdmin(handleDelete)(req, res);
+        return withAdminAuth(handleDelete)(req, res);
       
       default:
         return res.status(405).json({

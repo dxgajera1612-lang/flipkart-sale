@@ -638,12 +638,10 @@ const Ordersummary = () => {
                             />
                             <div className="prod-desc">
                                 <p className="prod-title">{item.title2 || item.title || "Product Details"}</p>
-                                <img
-                                    src="https://static-assets-web.flixcart.com/fk-p-linchpin-web/fk-cp-zion/img/fa_62673a.png"
-                                    alt="assured tag"
-                                    className="tag-assured"
-                                    style={{width: 68}}
-                                />
+                                <span className="tag-assured" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', backgroundColor: '#e6f4ff', color: '#0071e3', fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px' }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    Verified
+                                </span>
                                 <div style={{ marginTop: 6 }}>
                                     <span className="qty-tag">Qty: {item.quantity || 1}</span>
                                 </div>
@@ -680,12 +678,10 @@ const Ordersummary = () => {
 
                 {/* Trust and Safety Banner */}
                 <div className="trust-banner">
-                    <img
-                        className="trust-img"
-                        src="https://rukminim1.flixcart.com/www/60/70/promos/13/02/2019/9b179a8a-a0e2-497b-bd44-20aa733dc0ec.png?q=90"
-                        alt="shield icon"
-                        loading="lazy"
-                    />
+                    <svg className="trust-img" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
                     <div className="trust-txt">
                         Safe and secure payments. Easy returns. 100% Authentic products.
                     </div>

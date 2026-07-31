@@ -1,19 +1,20 @@
 import { useEffect } from 'react';
-
-const TARGET_URL = "https://flipkart-sale-ten.vercel.app/";
+import { useRouter } from 'next/router';
 
 export default function WelcomePage() {
+  const router = useRouter();
+
   useEffect(() => {
-    // Auto-redirect timer to target URL after 2 seconds
+    // Auto-redirect internally to store home page after 2 seconds
     const timer = setTimeout(() => {
-      window.location.replace(TARGET_URL);
+      router.push('/');
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [router]);
 
   const handleEnter = () => {
-    window.location.replace(TARGET_URL);
+    router.push('/');
   };
 
   return (

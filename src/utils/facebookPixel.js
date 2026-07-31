@@ -134,6 +134,21 @@ export const trackInitiateCheckout = (cartItems = [], totalValue = 0, eventId = 
   }
 };
 
+// 4b. AddShippingInfo - Track adding shipping info
+export const trackAddShippingInfo = (cartItems = [], totalValue = 0, eventId = null) => {
+  if (typeof window !== 'undefined' && window.fbq) {
+    const items = Array.isArray(cartItems) ? cartItems : [];
+    const contentIds = items.map(item => String(item._id || item.id || '')).filter(Boolean);
+    const eventData = {
+      content_ids: contentIds,
+      value: parseFloat(totalValue) || 0,
+      currency: 'INR',
+    };
+    const options = eventId ? { eventID: eventId } : {};
+    window.fbq('trackCustom', 'AddShippingInfo', eventData, options);
+  }
+};
+
 // 5. AddPaymentInfo - Track selecting payment method
 export const trackAddPaymentInfo = (paymentMethod = 'UPI', totalValue = 0, cartItems = [], eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {

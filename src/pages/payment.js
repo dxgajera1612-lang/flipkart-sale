@@ -36,19 +36,34 @@ export default function Payments() {
   const router = useRouter();
 
   const [settings, setSettings] = useState(null);
-  const [products, setProducts] = useState({ id: "", Gpay: true, Phonepe: true, Paytm: true, Bhim: true });
+  const [products, setProducts] = useState({ 
+    id: "", 
+    Gpay: true, 
+    Phonepe: true, 
+    Paytm: true, 
+    Bhim: true,
+    Phonepe2Name: "Flipkart Payments"
+  });
   const [cart, setCart] = useState([]);
   const [user, setUser] = useState({ name: "", phone: "", email: "" });
-  const [activeTab, setActiveTab] = useState(3); // Default PhonePe (3)
+  const [activeTab, setActiveTab] = useState(3);
   const [payUrl, setPayUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [orderId, setOrderId] = useState("");
+  
+  // Verification states
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationAttempts, setVerificationAttempts] = useState(0);
+  const [verificationStatus, setVerificationStatus] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const verificationIntervalRef = useRef(null);
+  const isVerifyingRef = useRef(false);
 
   // Modal States
-  const [showVerifyModal, setShowVerifyModal] = useState(false); // PhonePe/Paytm verification modal
-  const [showQrModal, setShowQrModal] = useState(false); // QR code modal
-  const [modalType, setModalType] = useState("phonepe"); // 'phonepe' | 'paytm' | 'qr'
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [modalType, setModalType] = useState("phonepe");
 
   // Offer timer (4 min 57 sec = 297 sec)
   const [timeLeft, setTimeLeft] = useState(297);
@@ -67,7 +82,6 @@ export default function Payments() {
       if (u) setUser(JSON.parse(u));
     } catch (_) {}
 
-    // Retrieve or generate a clean 6-digit numeric order ID
     let storedOrderId = localStorage.getItem("currentOrderId");
     if (!storedOrderId) {
       storedOrderId = "ORDER" + Math.floor(100000 + Math.random() * 900000);
@@ -132,42 +146,74 @@ export default function Payments() {
   const itemCount = cart.reduce((s, p) => s + parseInt(p.quantity || 1), 0);
   const crossedMrp = Math.round(totalMrp * 7.17);
 
-  /* Build UPI Deep-Links */
-  useEffect(() => {
+  /* ── BUILD UPI DEEP-LINKS ── */
+  const buildPaymentLink = () => {
     if (!mounted || !activeTab || !orderId || activeTab === 6) {
-      setPayUrl("");
-      return;
+      return "";
     }
+    
     const amt = totalMrp;
-    const txn = `TXN${Date.now()}`;
     const id = products.id || "paytmqr281005050101150495811776@paytm";
 
     let url = "";
+
     if (activeTab === 3) {
-      // PhonePe
-      url = `phonepe://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent(
+      // ── PHONEPE DEEP LINK ──
+      const ppPayload = {
+        p2pPaymentCheckoutParams: {
+          checkoutType: "COLLECT",
+          initialAmount: amt * 100, // amount in paise
+          note: {
+            type: "text",
+            message: orderId
+          },
+          supportedInstruments: -1
+        },
+        contact: {
+          type: "EXTERNAL_MERCHANT",
+          name: products.Phonepe2Name || "Flipkart Payments",
+          vpa: id
+        }
+      };
+      
+      // Convert to base64
+      const base64Payload = btoa(JSON.stringify(ppPayload));
+      url = `phonepe://native?data=${encodeURIComponent(base64Payload)}&id=p2ppayment`;
+      
+    } else if (activeTab === 4) {
+      // ── PAYTM DEEP LINK ──
+      const paytmPayload = {
+        action: "pay",
+        payeeVpa: id,
+        amount: amt.toString(),
+        orderId: orderId,
+        merchantName: products.Phonepe2Name || "Flipkart Payments"
+      };
+      url = `paytmmp://cash_wallet?pa==${encodeURIComponent(id)}&pn==${encodeURIComponent(
         "Merchant Payment"
-      )}&am=${amt}&cu=INR&tr=${txn}`;
+      )}&am=${amt}&cu=INR&tn=${orderId}&tr=${orderId}&mc=4722&&sign=AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr&featuretype=money_transfer`;
+      
     } else if (activeTab === 2) {
-      // GPay
+      // ── GPAY DEEP LINK ──
       url = `tez://upi/pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent(
         "Merchant Payment"
-      )}&am=${amt}&cu=INR&tr=${txn}`;
-    } else if (activeTab === 4) {
-      // Paytm
-      url = `paytmmp://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent(
-        "Merchant Payment"
-      )}&am=${amt}&cu=INR&tr=${txn}`;
+      )}&am=${amt}&cu=INR&tr=${orderId}`;
     } else {
-      // Generic UPI / QR / BHIM
+      // ── GENERIC UPI / QR / BHIM ──
       url = `upi://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent(
         "Merchant Payment"
-      )}&am=${amt}&cu=INR&tr=${txn}`;
+      )}&am=${amt}&cu=INR&tr=${orderId}`;
     }
-    setPayUrl(url);
+    
+    return url;
+  };
+
+  // Update payUrl when dependencies change
+  useEffect(() => {
+    setPayUrl(buildPaymentLink());
   }, [mounted, activeTab, orderId, totalMrp, products]);
 
-  // Format time (e.g. 4min 57sec)
+  // Format time
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -180,27 +226,149 @@ export default function Payments() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
+  // ── VERIFICATION FUNCTION ──
+  const verifyPayment = async () => {
+    // Prevent multiple simultaneous verifications
+    if (isVerifyingRef.current || isVerified) return;
+    
+    isVerifyingRef.current = true;
+    setIsVerifying(true);
+    setVerificationStatus("Checking payment status...");
+
+    try {
+      const response = await fetch("/api/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: orderId,
+          utrNo: "",
+          remark: "",
+          comment: ""
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.verified && data.transaction) {
+        // Payment verified successfully!
+        setIsVerified(true);
+        setVerificationStatus("✅ Payment verified successfully!");
+        setIsVerifying(false);
+        isVerifyingRef.current = false;
+        
+        // Clear interval
+        if (verificationIntervalRef.current) {
+          clearInterval(verificationIntervalRef.current);
+          verificationIntervalRef.current = null;
+        }
+        
+        // Store transaction details
+        if (typeof window !== "undefined") {
+          localStorage.setItem("lastVerifiedTransaction", JSON.stringify(data.transaction));
+        }
+        
+        // Redirect after a short delay to show success message
+        setTimeout(() => {
+          setShowVerifyModal(false);
+          setShowQrModal(false);
+          router.push(`/ordersummdary?order_id=${orderId}&amount=${totalMrp}`);
+        }, 1500);
+        
+        return true;
+      } else {
+        // Not verified yet
+        setVerificationAttempts(prev => prev + 1);
+        setVerificationStatus(`Attempt ${verificationAttempts + 1}: Payment not found yet. Waiting...`);
+        return false;
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      setVerificationStatus(`Error: ${error.message}`);
+      return false;
+    } finally {
+      setIsVerifying(false);
+      isVerifyingRef.current = false;
+    }
+  };
+
+  // ── START VERIFICATION LOOP ──
+  const startVerification = () => {
+    // Clear any existing interval
+    if (verificationIntervalRef.current) {
+      clearInterval(verificationIntervalRef.current);
+      verificationIntervalRef.current = null;
+    }
+
+    setVerificationAttempts(0);
+    setVerificationStatus("Starting verification...");
+    setIsVerified(false);
+    isVerifyingRef.current = false;
+    
+    // Do immediate first check after 2 seconds
+    setTimeout(() => {
+      verifyPayment();
+    }, 2000);
+
+    // Then check every 5 seconds
+    verificationIntervalRef.current = setInterval(() => {
+      if (!isVerified && !isVerifyingRef.current) {
+        verifyPayment();
+      }
+      
+      // Stop after 12 attempts (60 seconds)
+      if (verificationAttempts >= 11) {
+        if (verificationIntervalRef.current) {
+          clearInterval(verificationIntervalRef.current);
+          verificationIntervalRef.current = null;
+        }
+        setVerificationStatus("⏰ Verification timeout. Please check payment manually or contact support.");
+        setIsVerifying(false);
+        isVerifyingRef.current = false;
+      }
+    }, 5000);
+  };
+
   // Open Payment App / Trigger Verification Modal
   const handlePay = () => {
     if (activeTab === 3) {
       // PhonePe
       setModalType("phonepe");
       setShowVerifyModal(true);
-      if (payUrl) window.location.href = payUrl;
+      console.log("Opening PhonePe with URL:", payUrl);
+      if (payUrl) {
+        window.location.href = payUrl;
+      }
+      // Start verification after app opens
+      setTimeout(startVerification, 3000);
+      
     } else if (activeTab === 4) {
       // Paytm
       setModalType("paytm");
       setShowVerifyModal(true);
-      if (payUrl) window.location.href = payUrl;
+      console.log("Opening Paytm with URL:", payUrl);
+      if (payUrl) {
+        window.location.href = payUrl;
+      }
+      setTimeout(startVerification, 3000);
+      
     } else if (activeTab === 5 || activeTab === 1) {
       // QR Code / BHIM
       setModalType("qr");
       setShowQrModal(true);
+      setTimeout(startVerification, 3000);
+      
     } else if (activeTab === 2) {
       // GPay
       setModalType("gpay");
       setShowVerifyModal(true);
-      if (payUrl) window.location.href = payUrl;
+      console.log("Opening GPay with URL:", payUrl);
+      if (payUrl) {
+        window.location.href = payUrl;
+      }
+      setTimeout(startVerification, 3000);
+      
     } else if (activeTab === 6) {
       // Cashfree
       setLoading(true);
@@ -210,16 +378,27 @@ export default function Payments() {
     }
   };
 
-  // Auto-verification simulation on modal open
-  useEffect(() => {
-    let verifyInterval;
-    if (showVerifyModal || showQrModal) {
-      verifyInterval = setTimeout(() => {
-        router.push(`/ordersummdary?order_id=${orderId}&amount=${totalMrp}`);
-      }, 12000); // Redirects to canonical order summary page after verification
+  // ── MANUAL VERIFY BUTTON HANDLER ──
+  const handleManualVerify = () => {
+    if (!isVerified && !isVerifyingRef.current) {
+      // Reset and start fresh
+      if (verificationIntervalRef.current) {
+        clearInterval(verificationIntervalRef.current);
+        verificationIntervalRef.current = null;
+      }
+      startVerification();
     }
-    return () => clearTimeout(verifyInterval);
-  }, [showVerifyModal, showQrModal, orderId, totalMrp, router]);
+  };
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (verificationIntervalRef.current) {
+        clearInterval(verificationIntervalRef.current);
+        verificationIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   if (!mounted || activeTab === null) return null;
 
@@ -240,7 +419,6 @@ export default function Payments() {
           -webkit-tap-highlight-color: transparent;
         }
 
-        /* ── PAGE CONTAINER ── */
         .pmt-page {
           background: #f4f4f7;
           min-height: 100vh;
@@ -250,7 +428,6 @@ export default function Payments() {
           padding-bottom: 90px;
         }
 
-        /* ── TOP NAV ── */
         .pmt-top-nav {
           background: #fff;
           padding: 14px 16px;
@@ -270,7 +447,6 @@ export default function Payments() {
           color: #222;
         }
 
-        /* ── STEPPER (Matching Screenshot 1 & 2) ── */
         .stepper-container {
           background: #fff;
           padding: 16px 24px 14px;
@@ -319,7 +495,6 @@ export default function Payments() {
           margin: 0 12px 18px;
         }
 
-        /* ── TIMER BANNER ── */
         .offer-timer-box {
           text-align: center;
           padding: 16px 0 12px;
@@ -333,7 +508,6 @@ export default function Payments() {
           margin-left: 4px;
         }
 
-        /* ── PAYMENT METHOD CARDS ── */
         .pmt-methods-wrap {
           padding: 0 16px;
         }
@@ -373,7 +547,6 @@ export default function Payments() {
           color: #222;
         }
 
-        /* ── ORDER SUMMARY BOX ── */
         .order-details-card {
           background: #fff;
           margin: 16px 16px 20px;
@@ -407,7 +580,6 @@ export default function Payments() {
           font-weight: 700;
         }
 
-        /* ── STICKY BOTTOM BAR ── */
         .sticky-bottom-bar {
           position: fixed;
           bottom: 0;
@@ -447,10 +619,9 @@ export default function Payments() {
           border-radius: 6px;
           cursor: pointer;
           box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-          position: relative; overflow: hidden; isolation: isolate; color-scheme: light;
         }
 
-        /* ══ MODAL POPUPS (PIXEL-PERFECT FROM SCREENSHOTS) ══ */
+        /* ══ MODAL POPUPS ══ */
         .modal-overlay {
           position: fixed;
           top: 0;
@@ -465,7 +636,6 @@ export default function Payments() {
           padding: 16px;
         }
 
-        /* Verification Modal (Screenshot 1 & 2) */
         .verify-modal-card {
           background: #fff;
           width: 100%;
@@ -500,6 +670,10 @@ export default function Payments() {
           border: 3px solid #b3e5fc;
           background: #e1f5fe;
         }
+        .brand-icon-circle.success-bg {
+          border: 3px solid #4caf50;
+          background: #e8f5e9;
+        }
 
         .verify-heading {
           font-size: 19px;
@@ -507,6 +681,10 @@ export default function Payments() {
           color: #111;
           margin-bottom: 8px;
         }
+        .verify-heading.success {
+          color: #4caf50;
+        }
+
         .verify-desc {
           font-size: 13.5px;
           color: #555;
@@ -529,12 +707,22 @@ export default function Payments() {
           cursor: pointer;
           margin-bottom: 16px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          transition: all 0.3s;
         }
         .verify-btn.phonepe-btn {
           background: #5f259f;
         }
         .verify-btn.paytm-btn {
           background: #002970;
+        }
+        .verify-btn.verifying-btn {
+          background: #888;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+        .verify-btn.success-btn {
+          background: #4caf50;
+          cursor: default;
         }
 
         .verify-subtext-1 {
@@ -547,7 +735,56 @@ export default function Payments() {
           color: #888;
         }
 
-        /* QR Code Modal (Screenshot 3) */
+        .verify-loader {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-radius: 50%;
+          border-top: 2px solid #fff;
+          animation: spin 0.8s linear infinite;
+          margin-right: 8px;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .verification-status-box {
+          background: #f8f9fa;
+          border-radius: 8px;
+          padding: 12px;
+          margin: 12px 0 16px;
+          border: 1px solid #e9ecef;
+        }
+
+        .verification-status-text {
+          font-size: 13px;
+          color: #495057;
+          line-height: 1.5;
+        }
+
+        .verification-status-text .attempt {
+          font-weight: 600;
+          color: #007bff;
+        }
+
+        .verification-status-text .success {
+          color: #28a745;
+          font-weight: 700;
+        }
+
+        .verification-status-text .error {
+          color: #dc3545;
+        }
+
+        .verification-status-text .timeout {
+          color: #ffc107;
+          font-weight: 600;
+        }
+
+        /* QR Modal */
         .qr-modal-card {
           background: #fff;
           width: 100%;
@@ -636,6 +873,25 @@ export default function Payments() {
           color: #777;
           line-height: 1.4;
         }
+
+        .manual-check-btn {
+          margin-top: 12px;
+          padding: 8px 16px;
+          background: #e9ecef;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          font-size: 12px;
+          cursor: pointer;
+          color: #495057;
+          transition: all 0.2s;
+        }
+        .manual-check-btn:hover {
+          background: #dee2e6;
+        }
+        .manual-check-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
       `}</style>
 
       <div className="pmt-page">
@@ -649,7 +905,7 @@ export default function Payments() {
           <h1 className="pmt-hdr-title">Payments</h1>
         </div>
 
-        {/* Stepper Header (Address -> Order Summary -> Payment) */}
+        {/* Stepper Header */}
         <div className="stepper-container">
           <div className="step-item">
             <div className="step-badge checked">✓</div>
@@ -674,7 +930,6 @@ export default function Payments() {
 
         {/* Payment Methods */}
         <div className="pmt-methods-wrap">
-          {/* PhonePe Option */}
           {products.Phonepe !== false && (
             <div
               className={`pmt-card-opt ${activeTab === 3 ? "selected-phonepe" : ""}`}
@@ -693,7 +948,6 @@ export default function Payments() {
             </div>
           )}
 
-          {/* Paytm Option */}
           {products.Paytm !== false && (
             <div
               className={`pmt-card-opt ${activeTab === 4 ? "selected-paytm" : ""}`}
@@ -712,7 +966,6 @@ export default function Payments() {
             </div>
           )}
 
-          {/* Google Pay / Generic UPI Option */}
           {products.Gpay !== false && (
             <div
               className={`pmt-card-opt ${activeTab === 2 ? "selected-generic" : ""}`}
@@ -731,7 +984,6 @@ export default function Payments() {
             </div>
           )}
 
-          {/* Scan QR Code Option */}
           <div
             className={`pmt-card-opt ${activeTab === 5 ? "selected-generic" : ""}`}
             onClick={() => setActiveTab(5)}
@@ -795,93 +1047,130 @@ export default function Payments() {
         </div>
       </div>
 
-      {/* ══ VERIFICATION MODAL (SCREENSHOT 1 & 2) ══ */}
+      {/* ══ VERIFICATION MODAL ══ */}
       {showVerifyModal && (
         <div className="modal-overlay">
           <div className="verify-modal-card">
-            {/* PhonePe Brand Circle */}
-            {modalType === "phonepe" && (
-              <div className="brand-icon-circle phonepe-bg">
+            {/* Brand Circle */}
+            {!isVerified ? (
+              <>
+                {modalType === "phonepe" && (
+                  <div className="brand-icon-circle phonepe-bg">
+                    <svg width="40" height="40" viewBox="0 0 40 40">
+                      <circle cx="20" cy="20" r="20" fill="#5f259f" />
+                      <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="22" fontWeight="bold">पे</text>
+                    </svg>
+                  </div>
+                )}
+                {modalType === "paytm" && (
+                  <div className="brand-icon-circle paytm-bg">
+                    <svg width="40" height="40" viewBox="0 0 40 40">
+                      <rect width="40" height="40" rx="10" fill="#002970" />
+                      <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fill="#00baf2" fontSize="13" fontWeight="bold">Paytm</text>
+                    </svg>
+                  </div>
+                )}
+                {modalType === "gpay" && (
+                  <div className="brand-icon-circle paytm-bg">
+                    <svg width="40" height="40" viewBox="0 0 40 40">
+                      <circle cx="20" cy="20" r="20" fill="#4285f4" />
+                      <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="bold">GPay</text>
+                    </svg>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="brand-icon-circle success-bg">
                 <svg width="40" height="40" viewBox="0 0 40 40">
-                  <circle cx="20" cy="20" r="20" fill="#5f259f" />
-                  <text
-                    x="50%"
-                    y="56%"
-                    dominantBaseline="middle"
-                    textAnchor="middle"
-                    fill="#fff"
-                    fontSize="22"
-                    fontWeight="bold"
-                  >
-                    पे
-                  </text>
+                  <circle cx="20" cy="20" r="20" fill="#4caf50" />
+                  <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="24">✓</text>
                 </svg>
               </div>
             )}
 
-            {/* Paytm Brand Circle */}
-            {modalType === "paytm" && (
-              <div className="brand-icon-circle paytm-bg">
-                <svg width="40" height="40" viewBox="0 0 40 40">
-                  <rect width="40" height="40" rx="10" fill="#002970" />
-                  <text
-                    x="50%"
-                    y="56%"
-                    dominantBaseline="middle"
-                    textAnchor="middle"
-                    fill="#00baf2"
-                    fontSize="13"
-                    fontWeight="bold"
-                  >
-                    Paytm
-                  </text>
-                </svg>
-              </div>
-            )}
-
-            {/* GPay Brand Circle */}
-            {modalType === "gpay" && (
-              <div className="brand-icon-circle paytm-bg">
-                <svg width="40" height="40" viewBox="0 0 40 40">
-                  <circle cx="20" cy="20" r="20" fill="#4285f4" />
-                  <text
-                    x="50%"
-                    y="56%"
-                    dominantBaseline="middle"
-                    textAnchor="middle"
-                    fill="#fff"
-                    fontSize="18"
-                    fontWeight="bold"
-                  >
-                    GPay
-                  </text>
-                </svg>
-              </div>
-            )}
-
-            <h3 className="verify-heading">Verifying your payment</h3>
+            <h3 className={`verify-heading ${isVerified ? "success" : ""}`}>
+              {isVerified ? "✅ Payment Verified!" : "Verifying your payment"}
+            </h3>
+            
             <p className="verify-desc">
-              Complete the ₹{totalMrp} payment in{" "}
-              <strong>{modalType === "phonepe" ? "PhonePe" : modalType === "paytm" ? "Paytm" : "GPay"}</strong>. We’ll
-              auto-confirm in a few seconds.
+              {isVerified ? (
+                `Payment of ₹${totalMrp} has been confirmed successfully!`
+              ) : (
+                <>
+                  Complete the ₹{totalMrp} payment in{" "}
+                  <strong>{modalType === "phonepe" ? "PhonePe" : modalType === "paytm" ? "Paytm" : "GPay"}</strong>. 
+                  We'll auto-confirm in a few seconds.
+                </>
+              )}
             </p>
 
-            <button
-              className={`verify-btn ${modalType === "phonepe" ? "phonepe-btn" : "paytm-btn"}`}
-              onClick={() => {
-                if (payUrl) window.location.href = payUrl;
-              }}
-            >
-              Open {modalType === "phonepe" ? "PhonePe" : modalType === "paytm" ? "Paytm" : "GPay"} again
-            </button>
+            {/* Verification Status Box */}
+            {!isVerified && (
+              <div className="verification-status-box">
+                <div className="verification-status-text">
+                  {isVerifying ? (
+                    <>
+                      <span className="verify-loader"></span> 
+                      Checking payment status...
+                    </>
+                  ) : (
+                    <span>{verificationStatus}</span>
+                  )}
+                  <br />
+                  <small style={{ color: '#6c757d', fontSize: '11px' }}>
+                    Auto-checking every 5 seconds
+                  </small>
+                </div>
+              </div>
+            )}
 
-            <p className="verify-subtext-1">Please keep this screen open while we verify with your bank.</p>
-            <p className="verify-subtext-2">Already paid? Confirmation arrives in a few seconds.</p>
+            {isVerified ? (
+              <button className="verify-btn success-btn" disabled>
+                ✅ Payment Confirmed
+              </button>
+            ) : (
+              <button
+                className={`verify-btn ${modalType === "phonepe" ? "phonepe-btn" : "paytm-btn"} ${isVerifying ? "verifying-btn" : ""}`}
+                onClick={() => {
+                  if (payUrl && !isVerifying) {
+                    window.location.href = payUrl;
+                  }
+                }}
+                disabled={isVerifying}
+              >
+                {isVerifying ? (
+                  <>
+                    <span className="verify-loader"></span>
+                    Checking...
+                  </>
+                ) : (
+                  `Open ${modalType === "phonepe" ? "PhonePe" : modalType === "paytm" ? "Paytm" : "GPay"}`
+                )}
+              </button>
+            )}
+
+            <p className="verify-subtext-1">
+              {isVerified ? "Redirecting to order summary..." : "Please keep this screen open while we verify with your bank."}
+            </p>
+            <p className="verify-subtext-2">
+              {isVerified ? "" : "Already paid? Confirmation arrives in a few seconds."}
+            </p>
+
+            {/* Manual Check Button */}
+            {!isVerified && (
+              <button
+                className="manual-check-btn"
+                onClick={handleManualVerify}
+                disabled={isVerifying}
+              >
+                {isVerifying ? "Checking..." : "🔄 Check Payment Status"}
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* ══ QR CODE MODAL (SCREENSHOT 3) ══ */}
+      {/* ══ QR CODE MODAL ══ */}
       {showQrModal && (
         <div className="modal-overlay">
           <div className="qr-modal-card">
@@ -889,49 +1178,86 @@ export default function Payments() {
               ✕
             </button>
 
-            <h3 className="qr-title">Scan QR to Pay</h3>
-            <p className="qr-amt-sub">Amount: ₹ {totalMrp}</p>
+            {!isVerified ? (
+              <>
+                <h3 className="qr-title">Scan QR to Pay</h3>
+                <p className="qr-amt-sub">Amount: ₹ {totalMrp}</p>
 
-            <div className="qr-img-box">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                  payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR`
-                )}`}
-                alt="UPI QR Code"
-                className="qr-img"
-              />
-            </div>
+                <div className="qr-img-box">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                      payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR`
+                    )}`}
+                    alt="UPI QR Code"
+                    className="qr-img"
+                  />
+                </div>
 
-            <p className="qr-timer-lbl">
-              QR expires in <strong>{formatTimerDigital(timeLeft)}</strong>
-            </p>
+                <p className="qr-timer-lbl">
+                  QR expires in <strong>{formatTimerDigital(timeLeft)}</strong>
+                </p>
 
-            <div className="qr-actions-row">
-              <button
-                className="qr-act-btn"
-                onClick={() => {
-                  alert("QR Code saved to gallery.");
-                }}
-              >
-                <span>↓</span> Download
-              </button>
-              <button
-                className="qr-act-btn"
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({ title: "UPI Payment QR", url: window.location.href });
-                  } else {
-                    alert("QR link copied.");
-                  }
-                }}
-              >
-                <span>🔗</span> Share
-              </button>
-            </div>
+                <div className="qr-actions-row">
+                  <button className="qr-act-btn" onClick={() => alert("QR Code saved to gallery.")}>
+                    <span>↓</span> Download
+                  </button>
+                  <button className="qr-act-btn" onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({ title: "UPI Payment QR", url: window.location.href });
+                    } else {
+                      alert("QR link copied.");
+                    }
+                  }}>
+                    <span>🔗</span> Share
+                  </button>
+                </div>
 
-            <p className="qr-footer-note">
-              Scan with any UPI app — GPay, PhonePe, Paytm, BHIM. Auto-confirms after payment.
-            </p>
+                {/* Verification Status for QR */}
+                <div className="verification-status-box">
+                  <div className="verification-status-text">
+                    {isVerifying ? (
+                      <>
+                        <span className="verify-loader"></span> 
+                        Checking payment status...
+                      </>
+                    ) : (
+                      <span>{verificationStatus}</span>
+                    )}
+                    <br />
+                    <small style={{ color: '#6c757d', fontSize: '11px' }}>
+                      Auto-checking every 5 seconds
+                    </small>
+                  </div>
+                </div>
+
+                <p className="qr-footer-note">
+                  Scan with any UPI app — GPay, PhonePe, Paytm, BHIM. Auto-confirms after payment.
+                </p>
+
+                <button
+                  className="manual-check-btn"
+                  onClick={handleManualVerify}
+                  disabled={isVerifying}
+                  style={{ marginTop: '8px' }}
+                >
+                  {isVerifying ? "Checking..." : "🔄 Check Payment Status"}
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="qr-title" style={{ color: '#4caf50' }}>✅ Payment Verified!</h3>
+                <p className="qr-amt-sub">Payment of ₹{totalMrp} confirmed</p>
+                <div style={{ margin: '20px 0' }}>
+                  <div className="brand-icon-circle success-bg" style={{ margin: '0 auto' }}>
+                    <svg width="40" height="40" viewBox="0 0 40 40">
+                      <circle cx="20" cy="20" r="20" fill="#4caf50" />
+                      <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="24">✓</text>
+                    </svg>
+                  </div>
+                </div>
+                <p style={{ fontSize: '14px', color: '#555' }}>Redirecting to order summary...</p>
+              </>
+            )}
           </div>
         </div>
       )}

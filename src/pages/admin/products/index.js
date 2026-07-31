@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { 
   FiPlus, FiEdit, FiTrash2, FiSearch, FiEye, FiMenu, 
   FiArrowUp, FiArrowDown, FiSave, FiX, FiUpload, 
-  FiLink, FiCode, FiImage, FiAlertTriangle, FiCheckCircle, FiCopy
+  FiLink, FiCode, FiImage, FiAlertTriangle, FiCheckCircle, FiCopy,
+  FiPower, FiXCircle
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -59,11 +60,11 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
   });
   
   const [loading, setLoading] = useState(false);
-  const [imageMode, setImageMode] = useState('url'); // 'url' | 'upload'
+  const [imageMode, setImageMode] = useState('url');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [bulkImageUrls, setBulkImageUrls] = useState('');
   const [showBulkInput, setShowBulkInput] = useState(false);
-  const [descTab, setDescTab] = useState('edit'); // 'edit' | 'preview'
+  const [descTab, setDescTab] = useState('edit');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -566,7 +567,7 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                             <img
                               src={imgUrl}
                               alt={`Product ${idx + 1}`}
-                              className="w-100 h-100 object-cover"
+                              className="w-full h-full object-cover"
                               onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Invalid+Image+URL'; }}
                             />
 
@@ -1087,6 +1088,128 @@ function DeleteConfirmModal({ isOpen, onClose, product, onConfirm }) {
   );
 }
 
+// ─── Deactivate/Activate Modal ────────────────────────────────────
+function DeactivateConfirmModal({ isOpen, onClose, product, onConfirm }) {
+  const [loading, setLoading] = useState(false);
+  const [reason, setReason] = useState('');
+
+  if (!isOpen || !product) return null;
+
+  const isCurrentlyActive = product.isActive;
+  const action = isCurrentlyActive ? 'Deactivate' : 'Activate';
+  const actionColor = isCurrentlyActive ? 'bg-orange-500 hover:bg-orange-600' : 'bg-emerald-500 hover:bg-emerald-600';
+  const Icon = isCurrentlyActive ? FiXCircle : FiPower;
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    await onConfirm(product._id, !product.isActive);
+    setLoading(false);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="deactivate-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6">
+          <div className="flex items-start gap-4">
+            <div className={`w-12 h-12 ${isCurrentlyActive ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'} rounded-full flex items-center justify-center flex-shrink-0`}>
+              <Icon size={18} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-gray-900">{action} Product</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Are you sure you want to <strong>{action.toLowerCase()}</strong> this product?
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {isCurrentlyActive 
+                  ? 'Deactivated products will NOT be visible on the storefront.'
+                  : 'Activated products will become visible on the storefront.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Product Snippet */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border my-4 text-left">
+            <img
+              src={product.mainImage || product.images?.[0] || 'https://via.placeholder.com/50'}
+              alt={product.title}
+              className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+              onError={(e) => { e.target.src = 'https://via.placeholder.com/50'; }}
+            />
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-semibold text-gray-900 truncate">{product.title}</h4>
+              <p className="text-[11px] text-gray-500">
+                ₹{product.sellingPrice} • Stock: {product.stock ?? 0}
+              </p>
+            </div>
+            <span className={`badge ${product.isActive ? 'badge-success' : 'badge-danger'}`}>
+              {product.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+
+          {/* Optional Reason (only for deactivation) */}
+          {isCurrentlyActive && (
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-gray-800 mb-1">
+                Reason for deactivation (optional)
+              </label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Out of stock, Seasonal product, Discontinued..."
+                className="input w-full text-sm"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t">
+            <button
+              onClick={onClose}
+              className="btn btn-secondary text-xs"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              className={`btn ${actionColor} text-white text-xs flex items-center gap-2 shadow`}
+              disabled={loading}
+            >
+              {loading ? (
+                <><span className="spinner w-4 h-4" /> {action}ing...</>
+              ) : (
+                <><Icon size={15} /> {action} Product</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+      <style jsx>{`
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(2px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1050;
+          padding: 1rem;
+        }
+
+        .deactivate-modal-content {
+          background: white;
+          border-radius: 16px;
+          width: 100%;
+          max-width: 480px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────────
 export default function ProductsList() {
   const [products, setProducts]         = useState([]);
@@ -1098,6 +1221,8 @@ export default function ProductsList() {
   const [sortBy, setSortBy]             = useState('order');
   const [orderChanged, setOrderChanged] = useState(false);
   const [savingOrder, setSavingOrder]   = useState(false);
+  const [showOnlyActive, setShowOnlyActive] = useState(false);
+  const [showOnlyInactive, setShowOnlyInactive] = useState(false);
 
   // Modal state
   const [modalOpen, setModalOpen]       = useState(false);
@@ -1107,6 +1232,10 @@ export default function ProductsList() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState(null);
 
+  // Deactivate modal state
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
+  const [deactivatingProduct, setDeactivatingProduct] = useState(null);
+
   const dragIndex  = useRef(null);
   const [overIndex, setOverIndex] = useState(null);
 
@@ -1115,8 +1244,16 @@ export default function ProductsList() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      
+      // Build query params
+      let queryParams = `page=${page}&limit=50&search=${encodeURIComponent(search)}`;
+      
+      // Add status filter if enabled
+      if (showOnlyActive) queryParams += '&isActive=true';
+      else if (showOnlyInactive) queryParams += '&isActive=false';
+      
       const response = await fetch(
-        `/api/products?page=${page}&limit=50&search=${encodeURIComponent(search)}`,
+        `/api/products?${queryParams}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await response.json();
@@ -1131,12 +1268,14 @@ export default function ProductsList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, showOnlyActive, showOnlyInactive]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   useEffect(() => {
-    setDisplayed(applySorting(products, sortBy));
+    // Apply sorting to the filtered products
+    const sorted = applySorting(products, sortBy);
+    setDisplayed(sorted);
   }, [products, sortBy]);
 
   // ── Modal handlers ─────────────────────────────────────────────
@@ -1204,13 +1343,50 @@ export default function ProductsList() {
     }
   };
 
-  // ── Toggle status ──────────────────────────────────────────────
+  // ── Deactivate/Activate ──────────────────────────────────────
+  const openDeactivateModal = (product) => {
+    setDeactivatingProduct(product);
+    setDeactivateModalOpen(true);
+  };
+
+  const closeDeactivateModal = () => {
+    setDeactivateModalOpen(false);
+    setDeactivatingProduct(null);
+  };
+
+  const handleConfirmDeactivate = async (id, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+      const data = await response.json();
+      if (data.success) { 
+        toast.success(`Product ${newStatus ? 'activated' : 'deactivated'} successfully`); 
+        fetchProducts(); 
+      } else {
+        toast.error(data.message || 'Failed to update product status');
+      }
+    } catch { 
+      toast.error('Failed to update product status'); 
+    }
+  };
+
+  // ── Quick toggle status ──────────────────────────────────────
   const toggleStatus = async (id, currentStatus) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/products/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${token}` 
+        },
         body: JSON.stringify({ isActive: !currentStatus }),
       });
       const data = await response.json();
@@ -1276,22 +1452,81 @@ export default function ProductsList() {
     setOrderChanged(false); 
   };
 
+  // ── Filter handlers ──────────────────────────────────────────
+  const handleStatusFilter = (type) => {
+    if (type === 'active') {
+      setShowOnlyActive(!showOnlyActive);
+      setShowOnlyInactive(false);
+    } else if (type === 'inactive') {
+      setShowOnlyInactive(!showOnlyInactive);
+      setShowOnlyActive(false);
+    } else {
+      setShowOnlyActive(false);
+      setShowOnlyInactive(false);
+    }
+    setPage(1);
+  };
+
   const isDragMode  = sortBy === 'order';
   const showingFrom = pagination ? (page - 1) * pagination.limit + 1 : 0;
   const showingTo   = pagination ? Math.min(page * pagination.limit, pagination.total) : 0;
+
+  // Count active vs inactive
+  const activeCount = products.filter(p => p.isActive).length;
+  const inactiveCount = products.filter(p => !p.isActive).length;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Products Catalog</h1>
-            {pagination && <p className="text-sm text-gray-500 mt-1">{pagination.total} total products in database</p>}
+            {pagination && (
+              <p className="text-sm text-gray-500 mt-1">
+                {pagination.total} total products • 
+                <span className="text-emerald-600 ml-1">{activeCount} active</span> • 
+                <span className="text-gray-400 ml-1">{inactiveCount} inactive</span>
+              </p>
+            )}
           </div>
           <button onClick={openAddModal} className="btn bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2.5 rounded-xl shadow flex items-center gap-2">
             <FiPlus size={18} /> Add New Product
+          </button>
+        </div>
+
+        {/* Status Filter Buttons */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => handleStatusFilter('all')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+              !showOnlyActive && !showOnlyInactive 
+                ? 'bg-gray-800 text-white' 
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            }`}
+          >
+            All ({products.length})
+          </button>
+          <button
+            onClick={() => handleStatusFilter('active')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+              showOnlyActive 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            }`}
+          >
+            <FiCheckCircle className="inline mr-1" /> Active ({activeCount})
+          </button>
+          <button
+            onClick={() => handleStatusFilter('inactive')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+              showOnlyInactive 
+                ? 'bg-gray-600 text-white' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <FiXCircle className="inline mr-1" /> Inactive ({inactiveCount})
           </button>
         </div>
 
@@ -1400,7 +1635,7 @@ export default function ProductsList() {
                       Status <SortIcon asc="active_first" desc="inactive_first" />
                     </span>
                   </th>
-                  <th>Actions</th>
+                  <th style={{ width: 160 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1482,24 +1717,31 @@ export default function ProductsList() {
                       </td>
 
                       <td>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1.5">
                           <Link href={`/product/${product._id}`} target="_blank"
-                            className="btn btn-sm btn-secondary" title="View Storefront">
-                            <FiEye />
+                            className="btn btn-sm btn-secondary p-1.5" title="View Storefront">
+                            <FiEye size={15} />
                           </Link>
                           <button 
                             onClick={() => openEditModal(product)}
-                            className="btn btn-sm btn-secondary text-blue-600" 
+                            className="btn btn-sm btn-secondary text-blue-600 p-1.5" 
                             title="Edit Product"
                           >
-                            <FiEdit />
+                            <FiEdit size={15} />
+                          </button>
+                          <button 
+                            onClick={() => openDeactivateModal(product)}
+                            className={`btn btn-sm p-1.5 ${product.isActive ? 'btn-warning text-orange-600' : 'btn-success text-emerald-600'}`}
+                            title={product.isActive ? 'Deactivate Product' : 'Activate Product'}
+                          >
+                            {product.isActive ? <FiXCircle size={15} /> : <FiPower size={15} />}
                           </button>
                           <button 
                             onClick={() => openDeleteModal(product)}
-                            className="btn btn-sm btn-danger" 
+                            className="btn btn-sm btn-danger p-1.5" 
                             title="Delete Product"
                           >
-                            <FiTrash2 />
+                            <FiTrash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -1549,6 +1791,14 @@ export default function ProductsList() {
         onClose={closeDeleteModal}
         product={deletingProduct}
         onConfirm={handleConfirmDelete}
+      />
+
+      {/* Deactivate/Activate Modal */}
+      <DeactivateConfirmModal
+        isOpen={deactivateModalOpen}
+        onClose={closeDeactivateModal}
+        product={deactivatingProduct}
+        onConfirm={handleConfirmDeactivate}
       />
     </AdminLayout>
   );

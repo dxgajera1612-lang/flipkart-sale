@@ -52,7 +52,7 @@ function Home() {
       const headers = { "Accept": "*/*", "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/products?page=${pageNum}&limit=20`, {
+      const res = await fetch(`/api/products?page=${pageNum}&limit=20&isActive=true`, {
         method: 'GET', headers, credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed');

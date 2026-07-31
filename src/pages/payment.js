@@ -82,11 +82,7 @@ export default function Payments() {
       if (u) setUser(JSON.parse(u));
     } catch (_) {}
 
-    let storedOrderId = localStorage.getItem("currentOrderId");
-    if (!storedOrderId) {
-      storedOrderId = "ORDER" + Math.floor(100000 + Math.random() * 900000);
-      localStorage.setItem("currentOrderId", storedOrderId);
-    }
+    let storedOrderId = "ORDER" + Math.floor(100000 + Math.random() * 900000);
     setOrderId(storedOrderId);
   }, []);
 
@@ -188,18 +184,10 @@ export default function Payments() {
         amount: amt.toString(),
         orderId: orderId,
         merchantName: products.Phonepe2Name || "Flipkart Payments"
-      }; 
-
-       url =
-  `paytmmp://cash_wallet?` +
-  `pa=${encodeURIComponent(id)}` +
-  `&pn=${encodeURIComponent("Merchant Payment")}` +
-  `&am=${encodeURIComponent(amt)}` +
-  `&cu=INR` +
-  `&tn=${encodeURIComponent(orderId)}` +
-  `&tr=${encodeURIComponent(orderId)}` +
-  `&mc=4722` +
-  `&featuretype=money_transfer`;
+      };
+      url = `paytmmp://cash_wallet?pa==${encodeURIComponent(id)}&pn=${encodeURIComponent(
+        "Merchant Payment"
+      )}&am=${amt}&cu=INR&tn=${orderId}&tr=${orderId}&mc=4722&&sign=AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr&featuretype=money_transfer`;
       
     } else if (activeTab === 2) {
       // ── GPAY DEEP LINK ──

@@ -1278,19 +1278,17 @@ export default function Payments() {
             {!isVerified ? (
               <>
                 <div className={`brand-icon-circle ${modalType === 'phonepe' ? 'phonepe-bg' : modalType === 'paytm' ? 'paytm-bg' : 'gpay-bg'}`}>
-                  {modalType === 'phonepe' && <svg width="36" height="36" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#5f259f"/><text x="50%" y="56%" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold">पे</text></svg>}
-                  {modalType === 'paytm' && <svg width="36" height="36" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="#002970"/><text x="50%" y="56%" textAnchor="middle" fill="#00baf2" fontSize="12" fontWeight="bold">Paytm</text></svg>}
+                  {modalType === 'phonepe' &&<img src="/assets/images/phonepe.svg" alt="PhonePe" className="pmt-app-logo" 
+                onError={(e) => { e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%235f259f'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' fill='%23fff' font-size='20' font-weight='bold'%3Eपे%3C/text%3E%3C/svg%3E"; }} />
+             }
+                  {modalType === 'paytm' &&  <img src="/assets/images/PAYTM.NS_BIG.svg" alt="Paytm" className="pmt-app-logo"
+                onError={(e) => { e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%2300baf2'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' fill='%23fff' font-size='12' font-weight='bold'%3EPaytm%3C/text%3E%3C/svg%3E"; }} />
+             }
                   {modalType === 'gpay' && <svg width="36" height="36" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#4285f4"/><text x="50%" y="56%" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold">GPay</text></svg>}
                 </div>
                 <div className="verify-heading">Complete Payment</div>
                 <div className="verify-amount">₹{totalMrp.toLocaleString('en-IN')}</div>
                 <p className="verify-desc">Pay with <strong>{modalType === 'phonepe' ? 'PhonePe' : modalType === 'paytm' ? 'Paytm' : 'GPay'}</strong></p>
-                
-                <div className="verification-status-box">
-                  <div className="verification-status-text">
-                    {isVerifying ? <><span className="verify-loader"></span> Verifying...</> : verificationStatus}
-                  </div>
-                </div>
 
                 <button className={`verify-btn ${modalType === 'phonepe' ? 'phonepe-btn' : modalType === 'paytm' ? 'paytm-btn' : 'gpay-btn'} ${isVerifying ? 'verifying-btn' : ''}`}
                   onClick={() => { if (payUrl && !isVerifying) window.location.href = payUrl; }} disabled={isVerifying}>
@@ -1331,11 +1329,6 @@ export default function Payments() {
                 <div className="qr-actions-row">
                   <button className="qr-act-btn" onClick={downloadQR}>⬇ Save</button>
                   <button className="qr-act-btn" onClick={() => copyToClipboard(payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR&tr=${orderId}`)}>📋 Copy</button>
-                </div>
-                <div className="verification-status-box">
-                  <div className="verification-status-text">
-                    {isVerifying ? <><span className="verify-loader"></span> Verifying...</> : verificationStatus}
-                  </div>
                 </div>
                 <p className="qr-footer-note">Scan with GPay, PhonePe, Paytm, or BHIM</p>
                 <button className="manual-check-btn" onClick={handleManualVerify} disabled={isVerifying}>

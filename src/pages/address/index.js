@@ -69,9 +69,6 @@ const Address = () => {
     const newErrors = {};
     if (!values.fname.trim())    newErrors.fname   = "Full name is required";
     if (!values.mobile.trim())   newErrors.mobile  = "Mobile number is required";
-    if (!values.pincode.trim())  newErrors.pincode = "Pincode is required";
-    if (!values.city.trim())     newErrors.city    = "City is required";
-    if (!values.state)           newErrors.state   = "Please select a state";
     return newErrors;
   };
 
@@ -344,34 +341,6 @@ const Address = () => {
             </svg>
             Delivery Address
           </div>
-
-          {/* Location button */}
-          <button
-            type="button"
-            className="location-btn"
-            onClick={handleUseCurrentLocation}
-            disabled={locationLoading}
-          >
-            {locationLoading ? (
-              <>
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={{ animation: "spin 1s linear infinite" }}>
-                  <circle cx="12" cy="12" r="10" stroke="#ffc200" strokeWidth="3" strokeDasharray="30 60" />
-                </svg>
-                Detecting location…
-              </>
-            ) : (
-              <>
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="#ffc200" />
-                </svg>
-                Use Current Location
-              </>
-            )}
-          </button>
-
-          {locationError && <p className="location-error">⚠ {locationError}</p>}
-
-          <div className="or-divider">or fill manually</div>
 
           {/* Full Name */}
           <div className="form-floating">

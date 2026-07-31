@@ -700,8 +700,6 @@ const addToCart = (buyNow = false) => {
 
         </div>
 
-        {/* ===== OFFERS SECTION ===== */}
-        <OffersSection />
 
         {/* ===== DELIVERY TRACKER ===== */}
         <DeliveryTracker />

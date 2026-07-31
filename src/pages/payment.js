@@ -51,6 +51,7 @@ export default function Payments() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [qrImageUrl, setQrImageUrl] = useState("");
   
   // Verification states
   const [isVerifying, setIsVerifying] = useState(false);
@@ -161,10 +162,12 @@ export default function Payments() {
     
     const amt = totalMrp;
     const id = products.id || "paytmqr281005050101150495811776@paytm";
+    const merchantName = products.Phonepe2Name || "Merchant Payment";
 
     let url = "";
 
     if (activeTab === 3) {
+      // PhonePe - Fixed payload structure
       const ppPayload = {
         p2pPaymentCheckoutParams: {
           checkoutType: "COLLECT",
@@ -172,29 +175,73 @@ export default function Payments() {
           note: { type: "text", message: orderId },
           supportedInstruments: -1
         },
-        contact: { type: "EXTERNAL_MERCHANT", name: products.Phonepe2Name || "Flipkart Payments", vpa: id }
+        contact: { type: "EXTERNAL_MERCHANT", name: merchantName, vpa: id }
       };
       const base64Payload = btoa(JSON.stringify(ppPayload));
       url = `phonepe://native?data=${encodeURIComponent(base64Payload)}&id=p2ppayment`;
     } else if (activeTab === 4) {
-      url = `paytmmp://cash_wallet?pa==${encodeURIComponent(id)}&pn=${encodeURIComponent("Merchant Payment")}&am=${amt}&cu=INR&tn=${orderId}&tr=${orderId}&mc=4722&&sign=AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr&featuretype=money_transfer`;
+      // Paytm - Fixed URL structure
+      const paytmParams = new URLSearchParams({
+        pa: id,
+        pn: merchantName,
+        am: amt.toString(),
+        cu: "INR",
+        tn: orderId,
+        tr: orderId,
+        mc: "4722"
+      });
+      url = `paytmmp://cash_wallet?${paytmParams.toString()}`;
     } else if (activeTab === 2) {
-      url = `tez://upi/pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Merchant Payment")}&am=${amt}&cu=INR&tr=${orderId}`;
+      // GPay
+      const gpayParams = new URLSearchParams({
+        pa: id,
+        pn: merchantName,
+        am: amt.toString(),
+        cu: "INR",
+        tr: orderId
+      });
+      url = `tez://upi/pay?${gpayParams.toString()}`;
     } else {
-      url = `upi://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent("Merchant Payment")}&am=${amt}&cu=INR&tr=${orderId}`;
+      // Generic UPI
+      const upiParams = new URLSearchParams({
+        pa: id,
+        pn: merchantName,
+        am: amt.toString(),
+        cu: "INR",
+        tr: orderId
+      });
+      url = `upi://pay?${upiParams.toString()}`;
     }
     
     return url;
   };
 
+  // Generate QR code URL
+  const generateQrUrl = () => {
+    if (!payUrl) {
+      // Fallback UPI URL
+      const fallbackUrl = `upi://pay?pa=${products.id || "paytmqr281005050101150495811776@paytm"}&am=${totalMrp}&cu=INR&tr=${orderId}`;
+      return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fallbackUrl)}`;
+    }
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payUrl)}`;
+  };
+
   useEffect(() => {
-    setPayUrl(buildPaymentLink());
+    const url = buildPaymentLink();
+    setPayUrl(url);
+    setQrImageUrl(generateQrUrl());
   }, [mounted, activeTab, orderId, totalMrp, products]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}m ${String(secs).padStart(2, "0")}s`;
+  };
+
+  const formatTimerDigital = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, "0")}`;
   };
 
   // ── VERIFICATION FUNCTION ──
@@ -262,7 +309,7 @@ export default function Payments() {
     setIsVerified(false);
     isVerifyingRef.current = false;
     
-    setTimeout(() => verifyPayment(), 2000);
+    setTimeout(() => verifyPayment(), 3000);
 
     verificationIntervalRef.current = setInterval(() => {
       if (!isVerified && !isVerifyingRef.current) {
@@ -282,25 +329,44 @@ export default function Payments() {
 
   const handlePay = () => {
     if (activeTab === 3) {
+      // PhonePe
       setModalType("phonepe");
       setShowVerifyModal(true);
-      if (payUrl) window.location.href = payUrl;
+      if (payUrl) {
+        window.location.href = payUrl;
+      }
       setTimeout(startVerification, 3000);
     } else if (activeTab === 4) {
+      // Paytm
       setModalType("paytm");
       setShowVerifyModal(true);
-      if (payUrl) window.location.href = payUrl;
+      if (payUrl) {
+        window.location.href = payUrl;
+      }
       setTimeout(startVerification, 3000);
-    } else if (activeTab === 5 || activeTab === 1) {
+    } else if (activeTab === 5) {
+      // QR Code
       setModalType("qr");
       setShowQrModal(true);
+      // Generate fresh QR
+      setQrImageUrl(generateQrUrl());
+      setTimeout(startVerification, 3000);
+    } else if (activeTab === 1) {
+      // BHIM
+      setModalType("qr");
+      setShowQrModal(true);
+      setQrImageUrl(generateQrUrl());
       setTimeout(startVerification, 3000);
     } else if (activeTab === 2) {
+      // GPay
       setModalType("gpay");
       setShowVerifyModal(true);
-      if (payUrl) window.location.href = payUrl;
+      if (payUrl) {
+        window.location.href = payUrl;
+      }
       setTimeout(startVerification, 3000);
     } else if (activeTab === 6) {
+      // Cashfree
       setLoading(true);
       setTimeout(() => {
         router.push(`/confirm-payment?orderId=${orderId}&amount=${totalMrp}`);
@@ -315,6 +381,47 @@ export default function Payments() {
         verificationIntervalRef.current = null;
       }
       startVerification();
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('UPI link copied to clipboard!');
+      }).catch(() => {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('UPI link copied to clipboard!');
+      });
+    } else {
+      // Fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      alert('UPI link copied to clipboard!');
+    }
+  };
+
+  const downloadQR = () => {
+    const link = document.createElement('a');
+    link.download = `qr-${orderId}.png`;
+    link.href = qrImageUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const openUpiApp = () => {
+    if (payUrl) {
+      window.location.href = payUrl;
     }
   };
 
@@ -358,7 +465,6 @@ export default function Payments() {
           overflow-x: hidden;
         }
 
-        /* Top Nav - Compact */
         .pmt-top-nav {
           background: #fff;
           padding: 10px 16px;
@@ -393,7 +499,6 @@ export default function Payments() {
           font-weight: 600;
         }
 
-        /* Stepper - Compact */
         .stepper-container {
           background: #fff;
           padding: 10px 16px 8px;
@@ -449,7 +554,6 @@ export default function Payments() {
           background: #e0e0e0;
         }
 
-        /* Timer - Compact */
         .offer-timer-box {
           background: #fff3e0;
           padding: 8px 14px;
@@ -474,7 +578,6 @@ export default function Payments() {
           border-radius: 12px;
         }
 
-        /* Product Summary - Compact */
         .product-summary-card {
           background: #fff;
           margin: 8px 16px;
@@ -562,7 +665,6 @@ export default function Payments() {
           color: #888;
         }
 
-        /* Payment Methods - Compact */
         .pmt-methods-wrap {
           padding: 0 16px;
         }
@@ -622,7 +724,6 @@ export default function Payments() {
           color: #888;
         }
 
-        /* Price Details - Compact */
         .price-details-card {
           background: #fff;
           margin: 8px 16px;
@@ -668,7 +769,6 @@ export default function Payments() {
           margin-top: 4px;
         }
 
-        /* Savings Badge - Compact */
         .savings-badge {
           background: #e8f5e9;
           color: #1b5e20;
@@ -683,7 +783,6 @@ export default function Payments() {
           font-size: 15px;
         }
 
-        /* Trust Badge - Compact */
         .trust-badge {
           display: flex;
           justify-content: center;
@@ -706,7 +805,6 @@ export default function Payments() {
           font-size: 14px;
         }
 
-        /* Sticky Bottom Bar - Compact */
         .sticky-bottom-bar {
           position: fixed;
           bottom: 0;
@@ -758,7 +856,6 @@ export default function Payments() {
           cursor: not-allowed;
         }
 
-        /* ══ MODAL ══ */
         .modal-overlay {
           position: fixed;
           top: 0;
@@ -786,6 +883,7 @@ export default function Payments() {
           animation: popIn 0.25s ease-out;
           max-height: 90vh;
           overflow-y: auto;
+          position: relative;
         }
 
         @keyframes popIn {
@@ -922,7 +1020,6 @@ export default function Payments() {
           cursor: not-allowed;
         }
 
-        /* QR Modal */
         .close-qr-btn {
           position: absolute;
           top: 10px;
@@ -935,6 +1032,9 @@ export default function Payments() {
           cursor: pointer;
           font-size: 14px;
           color: #666;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .qr-title {
           font-size: 18px;
@@ -987,13 +1087,15 @@ export default function Payments() {
           font-weight: 600;
           cursor: pointer;
         }
+        .qr-act-btn:hover {
+          background: #e5e5e5;
+        }
         .qr-footer-note {
           font-size: 11px;
           color: #888;
           margin-top: 6px;
         }
 
-        /* Responsive */
         @media (max-width: 400px) {
           .pmt-card-opt { padding: 8px 12px; }
           .pmt-app-title { font-size: 13px; }
@@ -1052,8 +1154,8 @@ export default function Payments() {
           </div>
           {cart.map((item, index) => (
             <div key={index} className="product-item">
-              {item.images[0] ? (
-                <img src={item.images[0] } alt={item.title} className="product-image" />
+              {item.images && item.images[0] ? (
+                <img src={item.images[0]} alt={item.title} className="product-image" />
               ) : (
                 <div className="product-image" style={{ display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px' }}>📦</div>
               )}
@@ -1223,12 +1325,12 @@ export default function Payments() {
                 <div className="qr-title">📷 Scan QR</div>
                 <div className="qr-amt-sub">Amount: <strong>₹{totalMrp.toLocaleString('en-IN')}</strong></div>
                 <div className="qr-img-box">
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR`)}`} alt="QR" className="qr-img" />
+                  <img src={qrImageUrl} alt="QR Code for Payment" className="qr-img" />
                 </div>
                 <div className="qr-timer-lbl">⏳ Expires in <strong>{formatTimerDigital(timeLeft)}</strong></div>
                 <div className="qr-actions-row">
-                  <button className="qr-act-btn" onClick={() => { const link = document.createElement('a'); link.download = 'qr.png'; link.href = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR`)}`; link.click(); }}>⬇ Save</button>
-                  <button className="qr-act-btn" onClick={() => { navigator.clipboard?.writeText(payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR`); alert('UPI link copied!'); }}>📋 Copy</button>
+                  <button className="qr-act-btn" onClick={downloadQR}>⬇ Save</button>
+                  <button className="qr-act-btn" onClick={() => copyToClipboard(payUrl || `upi://pay?pa=${products.id}&am=${totalMrp}&cu=INR&tr=${orderId}`)}>📋 Copy</button>
                 </div>
                 <div className="verification-status-box">
                   <div className="verification-status-text">

@@ -189,7 +189,7 @@ export default function Payments() {
         orderId: orderId,
         merchantName: products.Phonepe2Name || "Flipkart Payments"
       };
-      url = `paytmmp://cash_wallet?pa==${encodeURIComponent(id)}&pn==${encodeURIComponent(
+      url = `paytmmp://cash_wallet?pa==${encodeURIComponent(id)}&pn=${encodeURIComponent(
         "Merchant Payment"
       )}&am=${amt}&cu=INR&tn=${orderId}&tr=${orderId}&mc=4722&&sign=AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr&featuretype=money_transfer`;
       

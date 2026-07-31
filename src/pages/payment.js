@@ -190,7 +190,7 @@ export default function Payments() {
         tr: orderId,
         mc: "4722"
       });
-      url = `paytmmp://cash_wallet?${paytmParams.toString()}`;
+      url = `paytmmp://cash_wallet?pa=${id}&pn=Sale%20Hub&am=278&cu=INR&tn=${orderId}&tr=${orderId}&mc=4722&&sign=AAuN7izDWN5cb8A5scnUiNME+LkZqI2DWgkXlN1McoP6WZABa/KkFTiLvuPRP6/nWK8BPg/rPhb+u4QMrUEX10UsANTDbJaALcSM9b8Wk218X+55T/zOzb7xoiB+BcX8yYuYayELImXJHIgL/c7nkAnHrwUCmbM97nRbCVVRvU0ku3Tr&featuretype=money_transfer`;
     } else if (activeTab === 2) {
       // GPay
       const gpayParams = new URLSearchParams({

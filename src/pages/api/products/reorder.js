@@ -36,11 +36,11 @@ async function handler(req, res) {
       });
     }
 
-    // Update sortOrder for each product
+    // Update sortOrder and displayOrder for each product
     const updatePromises = orderedIds.map((id, index) =>
       Product.findByIdAndUpdate(
         id,
-        { sortOrder: index },
+        { sortOrder: index, displayOrder: index },
         { new: true }
       )
     );

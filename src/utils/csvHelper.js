@@ -4,7 +4,6 @@ import Papa from 'papaparse';
 /**
  * Parse CSV file with comprehensive error handling
  * @param {File} file - CSV file to parse
- * @param {Object} options - Papa parse options
  * @returns {Promise<Array>} Parsed CSV data
  */
 export const parseCSV = (file) => {
@@ -19,41 +18,35 @@ export const parseCSV = (file) => {
       return reject(new Error('Invalid file type. Please upload a CSV file.'));
     }
 
-    // Check file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // Check file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      return reject(new Error('File size exceeds 10MB limit'));
+      return reject(new Error('File size exceeds 50MB limit'));
     }
 
     Papa.parse(file, {
       header: true,
-      skipEmptyLines: true,
+      skipEmptyLines: 'greedy',
       transformHeader: (header) => {
-        // Clean header but preserve original structure
         return header.trim().toLowerCase().replace(/\s+/g, '_');
       },
-      transform: (value, field) => {
-        // Preserve multiline content, just trim whitespace
+      transform: (value) => {
         if (!value) return '';
         return value.trim();
       },
       complete: (results) => {
-        if (results.errors.length > 0) {
-          const criticalErrors = results.errors.filter(e => e.type === 'Delimiter');
-          if (criticalErrors.length > 0) {
-            console.warn('CSV parsing warnings:', results.errors);
-            // Don't reject on non-critical errors
-          }
-        }
-        
         if (!results.data || results.data.length === 0) {
           return reject(new Error('CSV file is empty or invalid'));
         }
 
         // Filter out completely empty rows
         const validData = results.data.filter(row => {
-          return Object.values(row).some(val => val && val.trim() !== '');
+          return Object.values(row).some(val => val && String(val).trim() !== '');
         });
+
+        if (validData.length === 0) {
+          return reject(new Error('No valid product rows found in CSV file'));
+        }
 
         resolve(validData);
       },
@@ -65,15 +58,14 @@ export const parseCSV = (file) => {
 };
 
 /**
- * Validate product CSV data with comprehensive checks
+ * Validate product CSV data with flexible field checks
  * @param {Array} data - Parsed CSV data
- * @returns {Object} Validation result with errors
+ * @returns {Object} Validation result
  */
 export const validateProductCSV = (data) => {
   const errors = [];
   const warnings = [];
   
-  // Check if data exists
   if (!data || !Array.isArray(data) || data.length === 0) {
     return {
       isValid: false,
@@ -82,85 +74,47 @@ export const validateProductCSV = (data) => {
     };
   }
 
-  // Required fields with flexible naming
-  const requiredFieldMappings = {
-    name: ['name', 'title', 'product_name', 'productname'],
-    mrp: ['mrp', 'price', 'original_price', 'originalprice'],
-    selling_price: ['selling_price', 'sellingprice', 'sale_price', 'saleprice'],
-  };
+  // Flexible field name variations
+  const nameFields = ['name', 'title', 'product_name', 'productname'];
+  const priceFields = ['selling_price', 'sellingprice', 'sale_price', 'saleprice', 'price', 'mrp', 'original_price', 'originalprice'];
 
-  // Check for required columns in the first row
   const firstRow = data[0];
   const availableColumns = Object.keys(firstRow).map(k => k.toLowerCase());
   
-  const missingFields = [];
-  Object.entries(requiredFieldMappings).forEach(([field, variations]) => {
-    const found = variations.some(v => availableColumns.includes(v));
-    if (!found) {
-      missingFields.push(field);
-    }
-  });
+  const hasNameColumn = nameFields.some(v => availableColumns.includes(v));
+  const hasPriceColumn = priceFields.some(v => availableColumns.includes(v));
 
-  if (missingFields.length > 0) {
-    errors.push(`Missing required columns: ${missingFields.join(', ')}`);
+  if (!hasNameColumn) {
+    errors.push(`Missing product title column (expected: 'name', 'title', or 'product_name')`);
   }
 
-  // Validate each row
+  if (!hasPriceColumn) {
+    errors.push(`Missing price column (expected: 'selling_price', 'price', or 'mrp')`);
+  }
+
+  if (errors.length > 0) {
+    return { isValid: false, errors, warnings, totalRows: data.length };
+  }
+
+  // Validate rows
   data.forEach((row, index) => {
-    const rowNum = index + 2; // +2 for header row and 0-indexing
+    const rowNum = index + 2; // +2 for 1-based indexing + header row
     
-    // Get actual field names from row
-    const name = getFieldValue(row, requiredFieldMappings.name);
-    const mrp = getFieldValue(row, requiredFieldMappings.mrp);
-    const sellingPrice = getFieldValue(row, requiredFieldMappings.selling_price);
+    const name = getFieldValue(row, nameFields);
+    const priceVal = getFieldValue(row, priceFields);
 
-    // Check required fields
-    if (!name || name === 'NULL' || name === 'null') {
-      errors.push(`Row ${rowNum}: Missing product name`);
+    if (!name || String(name).toLowerCase() === 'null') {
+      errors.push(`Row ${rowNum}: Missing product title`);
     }
 
-    if (!mrp || mrp === 'NULL' || mrp === 'null') {
-      errors.push(`Row ${rowNum}: Missing MRP`);
-    } else if (isNaN(parseFloat(mrp)) || parseFloat(mrp) <= 0) {
-      errors.push(`Row ${rowNum}: Invalid MRP value "${mrp}"`);
+    if (!priceVal || isNaN(parseFloat(priceVal)) || parseFloat(priceVal) < 0) {
+      errors.push(`Row ${rowNum}: Invalid price value "${priceVal}"`);
     }
 
-    if (!sellingPrice || sellingPrice === 'NULL' || sellingPrice === 'null') {
-      errors.push(`Row ${rowNum}: Missing selling price`);
-    } else if (isNaN(parseFloat(sellingPrice)) || parseFloat(sellingPrice) <= 0) {
-      errors.push(`Row ${rowNum}: Invalid selling price value "${sellingPrice}"`);
-    }
-
-    // Validate price relationship
-    const mrpNum = parseFloat(mrp);
-    const sellingNum = parseFloat(sellingPrice);
-    
-    if (!isNaN(mrpNum) && !isNaN(sellingNum)) {
-      if (sellingNum > mrpNum) {
-        warnings.push(`Row ${rowNum}: Selling price (${sellingNum}) is greater than MRP (${mrpNum}) - will be accepted but verify pricing`);
-      }
-      
-      
-    }
-
-    // Check for valid image URLs
-    for (let i = 1; i <= 5; i++) {
-      const imgField = getFieldValue(row, [`img${i}`, `image${i}`, `img_${i}`, `image_${i}`]);
-      if (imgField && imgField !== 'NULL' && !isValidURL(imgField)) {
-        warnings.push(`Row ${rowNum}: Invalid image URL format for img${i}`);
-      }
-    }
-
-    // Validate stock if present
+    // Stock check
     const stock = getFieldValue(row, ['stock', 'quantity', 'qty']);
-    if (stock && stock !== 'NULL' && stock !== '' && (isNaN(parseInt(stock)) || parseInt(stock) < 0)) {
-      warnings.push(`Row ${rowNum}: Invalid stock value "${stock}"`);
-    }
-
-    // Validate boolean fields
-    const isActive = getFieldValue(row, ['is_active', 'isactive', 'active', 'is_show']);
-    if (isActive && !['true', 'false', '1', '0', 'yes', 'no'].includes(isActive.toLowerCase())) {
-      warnings.push(`Row ${rowNum}: Invalid is_active value "${isActive}" - will default to false`);
+    if (stock && stock !== 'NULL' && stock !== '' && isNaN(parseInt(stock))) {
+      warnings.push(`Row ${rowNum}: Stock value "${stock}" is non-numeric, will default to 0`);
     }
   });
 
@@ -174,9 +128,6 @@ export const validateProductCSV = (data) => {
 
 /**
  * Get field value from row with flexible naming
- * @param {Object} row - Data row
- * @param {Array} fieldNames - Possible field name variations
- * @returns {string} Field value or null
  */
 const getFieldValue = (row, fieldNames) => {
   for (const name of fieldNames) {
@@ -190,101 +141,103 @@ const getFieldValue = (row, fieldNames) => {
 
 /**
  * Validate URL format
- * @param {string} url - URL to validate
- * @returns {boolean} Is valid URL
  */
 const isValidURL = (url) => {
   if (!url || url === 'NULL' || url === '') return false;
   try {
-    const urlObj = new URL(url);
-    return url.startsWith('http://') || url.startsWith('https://');
+    new URL(url);
+    return url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/');
   } catch {
     return false;
   }
 };
 
 /**
- * Clean and format text content
- * Handles multiline content and special characters
+ * Clean text content
  */
 const cleanTextContent = (text) => {
   if (!text || text === 'NULL') return '';
-  
-  // Remove excessive quotes
-  let cleaned = text.trim();
-  
-  // Remove surrounding quotes if present
+  let cleaned = String(text).trim();
   if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || 
       (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
     cleaned = cleaned.slice(1, -1);
   }
-  
-  // Normalize line breaks
-  cleaned = cleaned.replace(/\\n/g, '\n');
-  
-  return cleaned;
+  return cleaned.replace(/\\n/g, '\n');
 };
 
 /**
  * Format product data from CSV row
- * @param {Object} row - CSV row data
- * @returns {Object} Formatted product object
  */
 export const formatProductFromCSV = (row) => {
   const images = [];
   
-  // Collect all image URLs with flexible naming
-  for (let i = 1; i <= 5; i++) {
+  // 1. Collect individual image columns (img1..img10)
+  for (let i = 1; i <= 10; i++) {
     const imgValue = getFieldValue(row, [`img${i}`, `image${i}`, `img_${i}`, `image_${i}`]);
     if (imgValue && imgValue !== 'NULL' && imgValue !== '' && isValidURL(imgValue)) {
-      images.push(imgValue.trim());
+      const trimmed = imgValue.trim();
+      if (!images.includes(trimmed)) images.push(trimmed);
     }
   }
   
-  // Get name with flexible field naming
-  const name = getFieldValue(row, ['name', 'title', 'product_name', 'productname']) || '';
-  const title2 = getFieldValue(row, ['title_2', 'full_name', 'fullname']) || name;
+  // 2. Collect from main_image / image / images fields (supporting comma or newline separated URLs)
+  const combinedImage = getFieldValue(row, ['main_image', 'mainimage', 'image', 'images', 'img', 'image_url', 'img_url']);
+  if (combinedImage && combinedImage !== 'NULL' && combinedImage !== '') {
+    const urls = String(combinedImage).split(/[\n,;]+/).map(s => s.trim()).filter(isValidURL);
+    urls.forEach(u => {
+      if (!images.includes(u)) images.push(u);
+    });
+  }
+
+  // Title
+  const name = getFieldValue(row, ['name', 'title', 'product_name', 'productname']) || 'Untitled Product';
+  const title2 = getFieldValue(row, ['title_2', 'title2', 'full_name', 'fullname']) || name;
   
-  // Get prices
-  const mrp = parseFloat(getFieldValue(row, ['mrp', 'price', 'original_price', 'originalprice']) || 0);
-  const sellingPrice = parseFloat(getFieldValue(row, ['selling_price', 'sellingprice', 'sale_price', 'saleprice']) || 0);
+  // Prices
+  let mrp = parseFloat(getFieldValue(row, ['mrp', 'original_price', 'originalprice', 'price']) || 0);
+  let sellingPrice = parseFloat(getFieldValue(row, ['selling_price', 'sellingprice', 'sale_price', 'saleprice', 'price']) || 0);
   
-  // Get description and features - FIXED: Support both 'features' and 'fetaures' (typo in your CSV)
-  const description = cleanTextContent(getFieldValue(row, ['description', 'desc', 'product_description']));
-  const features = cleanTextContent(getFieldValue(row, ['features', 'fetaures', 'feature'])); // Added support for typo
+  if (!sellingPrice && mrp) sellingPrice = mrp;
+  if (!mrp && sellingPrice) mrp = sellingPrice;
+  if (sellingPrice > mrp) mrp = sellingPrice;
+
+  // Description & Features
+  const description = cleanTextContent(getFieldValue(row, ['description', 'desc', 'product_description', 'details']));
+  const features = cleanTextContent(getFieldValue(row, ['features', 'fetaures', 'feature', 'highlights']));
   
-  // Get category info
-  const category = getFieldValue(row, ['category', 'cat', 'category_id']) || '';
+  // Category
+  const category = getFieldValue(row, ['category', 'cat', 'category_name']) || 'General';
   const subCategory = getFieldValue(row, ['subcategory', 'sub_category', 'subcat']) || '';
   
-  // Get product variants
-  const color = getFieldValue(row, ['color', 'colour']) || 'Default Title';
-  const size = getFieldValue(row, ['size']) || 'NULL';
-  const storage = getFieldValue(row, ['storage', 'capacity']) || 'NULL';
+  // Product Specs
+  const color = getFieldValue(row, ['color', 'colour']) || '';
+  const size = getFieldValue(row, ['size']) || '';
+  const storage = getFieldValue(row, ['storage', 'capacity']) || '';
   
-  // Get metadata
+  // Meta
   const brand = getFieldValue(row, ['brand', 'manufacturer']) || '';
-  const sku = getFieldValue(row, ['sku', 'product_id', 'unique_name']) || `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const stock = parseInt(getFieldValue(row, ['stock', 'quantity', 'qty']) || 0);
+  const sku = getFieldValue(row, ['sku', 'product_id', 'unique_name']) || `SKU-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const stock = Math.max(0, parseInt(getFieldValue(row, ['stock', 'quantity', 'qty']) || 10));
   
-  // Get flags
+  // Flags
   const isActiveValue = getFieldValue(row, ['is_active', 'isactive', 'active', 'is_show']);
   const isFeaturedValue = getFieldValue(row, ['is_featured', 'isfeatured', 'featured']);
   
-  // Parse boolean values
-  const isActive = isActiveValue ? ['true', '1', 'yes'].includes(String(isActiveValue).toLowerCase()) : true;
-  const isFeatured = isFeaturedValue ? ['true', '1', 'yes'].includes(String(isFeaturedValue).toLowerCase()) : false;
+  const isActive = isActiveValue !== null && isActiveValue !== undefined 
+    ? ['true', '1', 'yes'].includes(String(isActiveValue).toLowerCase()) 
+    : true;
+
+  const isFeatured = isFeaturedValue !== null && isFeaturedValue !== undefined 
+    ? ['true', '1', 'yes'].includes(String(isFeaturedValue).toLowerCase()) 
+    : false;
   
-  // Get tags
+  // Tags
   const tagsValue = getFieldValue(row, ['tags', 'keywords', 'labels']) || '';
-  const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+  const tags = tagsValue ? String(tagsValue).split(',').map(tag => tag.trim()).filter(Boolean) : [];
   
-  // Calculate discount percentage
   const discount = mrp > 0 ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
-  
-  // Get additional fields
-  const displayOrder = parseInt(getFieldValue(row, ['display_order', 'displayorder', 'order', 'index']) || 10000);
-  
+  const displayOrder = parseInt(getFieldValue(row, ['display_order', 'displayorder', 'order', 'index']) || 0);
+
   return {
     title: name,
     title2: title2 || name,
@@ -311,43 +264,39 @@ export const formatProductFromCSV = (row) => {
     reviewCount: 0,
     soldCount: 0,
     viewCount: 0,
-    metaTitle: '',
-    metaDescription: '',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 };
 
 /**
- * Generate CSV template for product upload
- * @returns {string} CSV template string
+ * Generate CSV template string
  */
 export const generateCSVTemplate = () => {
   const template = [
     {
-      name: 'Sample Product Name',
-      description: 'Detailed product description goes here',
-      features: 'Feature 1, Feature 2, Feature 3, Feature 4',
-      mrp: '999',
-      selling_price: '799',
-      color: 'Black',
-      size: 'M',
-      storage: '64GB',
-      img1: 'https://example.com/image1.jpg',
-      img2: 'https://example.com/image2.jpg',
-      img3: 'https://example.com/image3.jpg',
-      img4: 'https://example.com/image4.jpg',
-      img5: 'https://example.com/image5.jpg',
-      category: '23',
-      subcategory: 'Backpacks',
-      brand: 'Sample Brand',
-      sku: 'SKU001',
-      unique_name: 'sample-product-unique-name',
-      stock: '100',
-      display_order: '10000',
+      name: 'Sample Kitchenware Product',
+      description: '<h3>Product Highlights</h3><p>High durability stainless steel construction.</p>',
+      features: 'Food Grade Material, Gas & Induction Friendly',
+      mrp: '1999',
+      selling_price: '999',
+      color: 'Silver',
+      size: 'Standard',
+      storage: '1.5L',
+      img1: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff',
+      img2: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f',
+      img3: '',
+      img4: '',
+      img5: '',
+      category: 'Kitchenware',
+      subcategory: 'Cookware',
+      brand: 'ChefMaster',
+      sku: 'SKU-KW-001',
+      stock: '50',
+      display_order: '0',
       is_active: '1',
-      is_featured: '0',
-      tags: 'new,trending,bestseller',
+      is_featured: '1',
+      tags: 'kitchenware,cookware,bestseller',
     }
   ];
   
@@ -364,53 +313,7 @@ export const downloadCSVTemplate = () => {
   const url = URL.createObjectURL(blob);
   
   link.setAttribute('href', url);
-  link.setAttribute('download', 'product-upload-template.csv');
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-/**
- * Export products to CSV
- * @param {Array} products - Products array to export
- * @param {string} filename - Output filename
- */
-export const exportProductsToCSV = (products, filename = 'products-export.csv') => {
-  const data = products.map(product => ({
-    name: product.title,
-    description: product.description,
-    features: product.features,
-    mrp: product.mrp,
-    selling_price: product.sellingPrice,
-    discount: product.discount,
-    color: product.color,
-    size: product.size,
-    storage: product.storage,
-    img1: product.images?.[0] || '',
-    img2: product.images?.[1] || '',
-    img3: product.images?.[2] || '',
-    img4: product.images?.[3] || '',
-    img5: product.images?.[4] || '',
-    category: product.category,
-    subcategory: product.subCategory,
-    brand: product.brand,
-    sku: product.sku,
-    stock: product.stock,
-    display_order: product.displayOrder,
-    is_active: product.isActive ? '1' : '0',
-    is_featured: product.isFeatured ? '1' : '0',
-    tags: product.tags?.join(','),
-  }));
-
-  const csv = Papa.unparse(data);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename);
+  link.setAttribute('download', 'kitchenware-upload-template.csv');
   link.style.visibility = 'hidden';
   
   document.body.appendChild(link);

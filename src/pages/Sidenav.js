@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import React, { useMemo, useCallback, useEffect } from 'react';
-import { trackViewCart, trackRemoveFromCart } from '../utils/facebookPixel';
 
 function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
 
@@ -44,13 +43,8 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
 
     const removeItem = useCallback((itemId) => {
         if (!data133) return;
-        const removedItem = data133.find(item => item.id === itemId);
         const updatedProducts = data133.filter(item => item.id !== itemId);
         updateCart(updatedProducts);
-        // FB tracking
-        if (removedItem) {
-            trackRemoveFromCart(removedItem, removedItem.quantity || 1);
-        }
     }, [data133, updateCart]);
 
     const decreaseQuantity = useCallback((itemId) => {
@@ -101,12 +95,6 @@ function Sidenav({ mySidenavopen, setmySidenavopen, data133, setdata133 }) {
 
         document.body.style.overflow = 'hidden';
         window.addEventListener('keydown', handleKeyDown);
-
-        // FB: track cart view when drawer opens
-        if (data133 && data133.length > 0) {
-            const total = data133.reduce((s, p) => s + (parseFloat(p.sellingPrice) || 0) * (parseInt(p.quantity) || 1), 0);
-            trackViewCart(data133, total);
-        }
 
         return () => {
             document.body.style.overflow = previousOverflow;

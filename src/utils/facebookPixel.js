@@ -2,15 +2,13 @@
 
 /**
  * Clean & Standardized Meta (Facebook) Pixel Helper for E-Commerce
- * Modeled after standard Shopify Meta Pixel architecture
+ * STRICT FUNNEL FLOW: PageView -> ViewContent -> AddToCart -> InitiateCheckout -> AddPaymentInfo -> Purchase
  */
 
 export const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID || process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
 
 /**
  * Initialize Facebook Pixel with optional Advanced Matching user data
- * @param {String} pixelId - Facebook Pixel ID
- * @param {Object} userData - Advanced Matching details { em, ph, fn, ln, ct, st, zp, country }
  */
 export const initFacebookPixel = (pixelId, userData = {}) => {
   if (typeof window === 'undefined') return;
@@ -19,6 +17,11 @@ export const initFacebookPixel = (pixelId, userData = {}) => {
     console.warn('Facebook Pixel ID not provided');
     return;
   }
+
+  if (window._fb_pixel_initialized_id === pixelId) {
+    return;
+  }
+  window._fb_pixel_initialized_id = pixelId;
 
   // Load Facebook Pixel Base Code
   !(function(f,b,e,v,n,t,s) {
@@ -52,20 +55,14 @@ export const initFacebookPixel = (pixelId, userData = {}) => {
   console.log('✅ Facebook Pixel initialized:', pixelId);
 };
 
-// Track PageView
+// 1. PageView - Track page loads
 export const pageview = () => {
   if (typeof window !== 'undefined' && window.fbq) {
     window.fbq('track', 'PageView');
   }
 };
 
-// -------------------------------------------------------------
-// CORE SHOPIFY-STANDARD E-COMMERCE EVENTS
-// -------------------------------------------------------------
-
-/**
- * 1. ViewContent - Track when user views a product detail page
- */
+// 2. ViewContent - Track product detail views
 export const trackViewContent = (product, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq && product) {
     const price = parseFloat(product.sellingPrice || product.price || product.selling_price || 0);
@@ -86,9 +83,7 @@ export const trackViewContent = (product, eventId = null) => {
   }
 };
 
-/**
- * 2. AddToCart - Track when user adds an item to cart
- */
+// 3. AddToCart - Track adding item to cart
 export const trackAddToCart = (product, quantity = 1, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq && product) {
     const price = parseFloat(product.sellingPrice || product.price || product.selling_price || 0);
@@ -111,9 +106,7 @@ export const trackAddToCart = (product, quantity = 1, eventId = null) => {
   }
 };
 
-/**
- * 3. InitiateCheckout - Track when user enters the checkout flow
- */
+// 4. InitiateCheckout - Track proceeding to address/checkout
 export const trackInitiateCheckout = (cartItems = [], totalValue = 0, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {
     const items = Array.isArray(cartItems) ? cartItems : [];
@@ -141,30 +134,7 @@ export const trackInitiateCheckout = (cartItems = [], totalValue = 0, eventId = 
   }
 };
 
-/**
- * 4. AddShippingInfo - Track when user submits shipping details
- */
-export const trackAddShippingInfo = (shippingTier = 'Standard', cartItems = [], totalValue = 0, eventId = null) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    const items = Array.isArray(cartItems) ? cartItems : [];
-    const contentIds = items.map(item => String(item._id || item.id || '')).filter(Boolean);
-
-    const eventData = {
-      content_ids: contentIds,
-      value: parseFloat(totalValue) || 0,
-      currency: 'INR',
-      shipping_tier: shippingTier,
-    };
-
-    const options = eventId ? { eventID: eventId } : {};
-    window.fbq('track', 'AddShippingInfo', eventData, options);
-    console.log('🚚 [Meta Pixel] AddShippingInfo:', shippingTier);
-  }
-};
-
-/**
- * 5. AddPaymentInfo - Track when user selects/enters payment method
- */
+// 5. AddPaymentInfo - Track selecting payment method
 export const trackAddPaymentInfo = (paymentMethod = 'UPI', totalValue = 0, cartItems = [], eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {
     const items = Array.isArray(cartItems) ? cartItems : [];
@@ -184,9 +154,7 @@ export const trackAddPaymentInfo = (paymentMethod = 'UPI', totalValue = 0, cartI
   }
 };
 
-/**
- * 6. Purchase - Track successful order confirmation (CANONICAL PURCHASE EVENT)
- */
+// 6. Purchase - Track order confirmation
 export const trackPurchase = (orderData = {}, eventId = null) => {
   if (typeof window !== 'undefined' && window.fbq) {
     const { orderId, items = [], totalValue = 0, currency = 'INR' } = orderData;
@@ -217,24 +185,8 @@ export const trackPurchase = (orderData = {}, eventId = null) => {
   }
 };
 
-// -------------------------------------------------------------
-// OPTIONAL HELPER & UTILITY FUNCTIONS
-// -------------------------------------------------------------
-
 export const isPixelLoaded = () => {
   return typeof window !== 'undefined' && typeof window.fbq !== 'undefined';
-};
-
-export const trackRemoveFromCart = (product, quantity = 1) => {
-  if (typeof window !== 'undefined' && window.fbq && product) {
-    console.log('🗑️ [Meta Pixel] RemoveFromCart item:', product.title || product.name);
-  }
-};
-
-export const trackViewCart = (cartItems = [], totalValue = 0) => {
-  if (typeof window !== 'undefined' && window.fbq) {
-    console.log('👁️ [Meta Pixel] ViewCart:', cartItems.length, 'items');
-  }
 };
 
 export const getPixelId = async () => {
@@ -250,4 +202,3 @@ export const getPixelId = async () => {
     return null;
   }
 };
-

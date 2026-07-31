@@ -6,11 +6,8 @@ function Card({ item, index }) {
   const percentageOff = ((item.price - item.selling_price) / item.price) * 100;
   return (
     <Link
-      href={`/product-details/${item.id}`}
-      onClick={() => {
-        localStorage.setItem("cart", JSON.stringify(item));
-      }}
-      key={index}
+      href={`/product/${item._id || item.id}`}
+      key={item._id || item.id || index}
       className="Cs7ycL TcKeCe  col-6"
       style={{
         textDecoration: "none",

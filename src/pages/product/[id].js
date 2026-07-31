@@ -14,6 +14,26 @@ const getSizeLabel = (sizeNum) => {
   return sizes[sizeNum] || 's';
 };
 
+const cleanHtmlText = (htmlStr) => {
+  if (!htmlStr || typeof htmlStr !== 'string') return '';
+  return htmlStr
+    .replace(/L_id/gi, 'Lid')
+    .replace(/liqu_id/gi, 'liquid')
+    .replace(/w_idth/gi, 'width')
+    .replace(/w_ide/gi, 'wide')
+    .replace(/m_iddle/gi, 'middle')
+    .replace(/cel_w_idget/gi, 'cel_widget')
+    .replace(/celw_idget/gi, 'cel_widget')
+    .replace(/prov_ides/gi, 'provides')
+    .replace(/prov_ide/gi, 'provide')
+    .replace(/conf_idence/gi, 'confidence')
+    .replace(/l_ids/gi, 'lids')
+    .replace(/l_id/gi, 'lid')
+    .replace(/s_ide/gi, 'side')
+    .replace(/gr_id/gi, 'grid')
+    .replace(/rig_id/gi, 'rigid');
+};
+
 const getCartData = () => {
   if (typeof window === "undefined") return [];
   const data = localStorage.getItem("cart");
@@ -34,49 +54,41 @@ const saveCartData = (data) => {
 };
 
 // =============================================
-// SKELETON LOADER
+// FLIPKART STYLE SPINNER LOADER
 // =============================================
 const ProductSkeleton = () => (
-  <div className="skeleton-container">
-    <div className="skeleton-header">
-      <div className="skeleton-back"></div>
-      <div className="skeleton-logo"></div>
-      <div className="skeleton-actions">
-        <div className="skeleton-icon"></div>
-        <div className="skeleton-icon"></div>
-      </div>
-    </div>
-    <div className="skeleton-slider"></div>
-    <div className="skeleton-content">
-      <div className="skeleton-title"></div>
-      <div className="skeleton-title short"></div>
-      <div className="skeleton-price-group">
-        <div className="skeleton-price"></div>
-        <div className="skeleton-price"></div>
-      </div>
-      <div className="skeleton-badges">
-        <div className="skeleton-badge"></div>
-        <div className="skeleton-badge"></div>
-      </div>
-    </div>
+  <div className="fk-loader-container">
+    <div className="fk-spinner"></div>
+    <div className="fk-loader-text">Loading Product...</div>
     <style jsx>{`
-      .skeleton-container { background: #fff; min-height: 100vh; animation: fadeIn 0.3s; }
-      .skeleton-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; }
-      .skeleton-back, .skeleton-logo, .skeleton-icon { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
-      .skeleton-back { width: 30px; height: 30px; border-radius: 50%; }
-      .skeleton-logo { width: 90px; height: 24px; }
-      .skeleton-actions { display: flex; gap: 15px; }
-      .skeleton-icon { width: 24px; height: 24px; border-radius: 50%; }
-      .skeleton-slider { width: 100%; height: 360px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-      .skeleton-content { padding: 16px; }
-      .skeleton-title { height: 18px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; margin-bottom: 10px; }
-      .skeleton-title.short { width: 70%; }
-      .skeleton-price-group { display: flex; gap: 10px; margin: 16px 0; }
-      .skeleton-price { height: 24px; width: 70px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
-      .skeleton-badges { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 20px; }
-      .skeleton-badge { height: 60px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
-      @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      .fk-loader-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 80vh;
+        background: #fff;
+      }
+      .fk-spinner {
+        width: 44px;
+        height: 44px;
+        border: 3.5px solid #e2e8f0;
+        border-top: 3.5px solid #2874f0;
+        border-radius: 50%;
+        animation: fkSpin 0.7s linear infinite;
+      }
+      .fk-loader-text {
+        margin-top: 14px;
+        font-family: 'Outfit', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        color: #2874f0;
+        letter-spacing: 0.02em;
+      }
+      @keyframes fkSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     `}</style>
   </div>
 );
@@ -697,22 +709,22 @@ const addToCart = (buyNow = false) => {
         {/* Similar Products */}
         <SimilarProducts currentProductId={data1._id || data1.id} />
 
-        {/* ===== PRODUCT SPECS ===== */}
-        <ProductSpecs data={data1} />
-
         {/* Product Details */}
         {(data1.description || data1.highlight || data1.features) && (
           <div className="product-details">
             <h3 className="details-title">Product Details</h3>
             {data1.features && (
               <div className="features-section">
-                {data1.features && <div dangerouslySetInnerHTML={{ __html: data1.features }} />}
+                <div dangerouslySetInnerHTML={{ __html: cleanHtmlText(data1.features) }} />
               </div>
             )}
-            {data1.highlight && <div dangerouslySetInnerHTML={{ __html: data1.highlight }} />}
-            {data1.description && <div dangerouslySetInnerHTML={{ __html: data1.description }} />}
+            {data1.highlight && <div dangerouslySetInnerHTML={{ __html: cleanHtmlText(data1.highlight) }} />}
+            {data1.description && <div dangerouslySetInnerHTML={{ __html: cleanHtmlText(data1.description) }} />}
           </div>
         )}
+
+        {/* ===== PRODUCT SPECS & REVIEWS / RATINGS (AT BOTTOM AFTER DESCRIPTION) ===== */}
+        <ProductSpecs data={data1} />
 
         {/* Bottom Action Bar */}
         <div className="action-bar">
@@ -771,10 +783,55 @@ const addToCart = (buyNow = false) => {
         .rating-value { font-size: 13px; font-weight: 600; }
         .rating-text { font-size: 12px; color: #666; }
 
-        /* Product Details */
-        .product-details { background: #fff; padding: 16px; margin-top: 8px; }
-        .details-title { font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 600; color: #333; margin-bottom: 12px; }
-        .features-section { font-size: 14px; color: #666; line-height: 1.6; }
+        /* Product Details UI/UX */
+        .product-details { background: #fff; padding: 20px 16px; margin-top: 10px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .details-title { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #f1f5f9; letter-spacing: -0.01em; }
+        .features-section { font-size: 14px; color: #334155; line-height: 1.6; width: 100%; overflow-x: hidden; }
+        
+        /* Specification Tables */
+        .features-section table.a-normal,
+        .features-section table { width: 100% !important; border-collapse: separate !important; border-spacing: 0 !important; margin: 16px 0 !important; background: #f8fafc !important; border-radius: 10px !important; overflow: hidden !important; border: 1px solid #e2e8f0 !important; }
+        .features-section tr { border-bottom: 1px solid #e2e8f0 !important; }
+        .features-section tr:last-child { border-bottom: none !important; }
+        .features-section td { padding: 11px 14px !important; font-size: 13px !important; vertical-align: middle !important; border: none !important; }
+        .features-section td.a-span3,
+        .features-section td:first-child,
+        .features-section .a-text-bold { font-weight: 700 !important; color: #1e293b !important; width: 38% !important; background: #f1f5f9 !important; border-right: 1px solid #e2e8f0 !important; }
+        .features-section td.a-span9,
+        .features-section td:last-child { color: #475569 !important; width: 62% !important; background: #fff !important; word-break: break-word !important; }
+        
+        /* Bullet Lists ("About this item") */
+        .features-section #feature-bullets,
+        .features-section .a-section { margin: 16px 0 !important; }
+        .features-section h1.a-size-base-plus,
+        .features-section h1,
+        .features-section h2,
+        .features-section h3 { font-family: 'Outfit', sans-serif !important; font-size: 16px !important; font-weight: 700 !important; color: #0f172a !important; margin: 18px 0 10px !important; display: block !important; }
+        .features-section ul,
+        .features-section ul.a-unordered-list { padding-left: 20px !important; margin: 12px 0 16px !important; list-style: disc outside !important; }
+        .features-section li,
+        .features-section li.a-spacing-mini { margin-bottom: 10px !important; color: #334155 !important; font-size: 14px !important; line-height: 1.6 !important; }
+        .features-section li .a-list-item { color: #334155 !important; font-size: 14px !important; }
+        
+        /* Amazon A+ Content Grid & Modules */
+        .features-section .aplus-module,
+        .features-section .celw_idget,
+        .features-section [cel_w_idget__id] { margin: 24px 0 !important; width: 100% !important; clear: both !important; }
+        .features-section table.apm-eventhirdcol-table,
+        .features-section .apm-fixed-width { width: 100% !important; max-width: 100% !important; display: block !important; border: none !important; background: transparent !important; }
+        .features-section table.apm-eventhirdcol-table tbody { display: flex !important; flex-direction: column !important; gap: 16px !important; width: 100% !important; }
+        .features-section table.apm-eventhirdcol-table tr { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important; gap: 16px !important; width: 100% !important; border: none !important; background: transparent !important; }
+        .features-section table.apm-eventhirdcol-table th,
+        .features-section table.apm-eventhirdcol-table td,
+        .features-section .apm-eventhirdcol { display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; width: 100% !important; padding: 14px !important; border: 1px solid #e2e8f0 !important; background: #fff !important; border-radius: 12px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important; }
+        .features-section .apm-eventhirdcol img,
+        .features-section table.apm-eventhirdcol-table img { width: 100% !important; max-width: 220px !important; height: 180px !important; object-fit: cover !important; border-radius: 8px !important; margin-bottom: 10px !important; display: block !important; }
+        .features-section .apm-eventhirdcol h4,
+        .features-section table.apm-eventhirdcol-table h4 { font-family: 'Outfit', sans-serif !important; font-size: 14px !important; font-weight: 700 !important; color: #0f172a !important; margin: 8px 0 4px !important; text-align: center !important; }
+        .features-section .apm-eventhirdcol p,
+        .features-section table.apm-eventhirdcol-table p { font-size: 12.5px !important; color: #64748b !important; line-height: 1.5 !important; text-align: center !important; margin: 0 !important; }
+        .features-section img { max-width: 100% !important; height: auto !important; border-radius: 10px !important; margin: 14px auto !important; display: block !important; }
+        .features-section hr { border: 0; height: 1px; background: #e2e8f0; margin: 20px 0; }
 
         /* Action Bar */
         .action-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 10px 16px; box-shadow: 0 -2px 10px rgba(0,0,0,0.08); display: flex; gap: 12px; z-index: 99; }

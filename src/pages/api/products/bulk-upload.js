@@ -1,7 +1,7 @@
 // pages/api/products/bulk-upload.js
 import connectToDatabase from '../../../utils/mongodb';
 import Product from '../../../models/Product';
-import { requireAdmin } from '../../../utils/auth';
+import { withAdminAuth } from '../../../middleware/auth';
 import { validateProductCSV, formatProductFromCSV } from '../../../utils/csvHelper';
 
 export const config = {
@@ -16,20 +16,22 @@ export const config = {
  * Generate slug from product name
  */
 function generateSlug(name, sku) {
-  if (!name) return sku || `product-${Date.now()}`;
-  
-  let slug = name
+  let base = (name || 'product')
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  
-  if (slug.length > 200) {
-    slug = slug.substring(0, 200).replace(/-[^-]*$/, '');
+
+  if (base.length > 150) {
+    base = base.substring(0, 150).replace(/-[^-]*$/, '');
   }
-  
-  return slug || sku || `product-${Date.now()}`;
+
+  const suffix = sku 
+    ? sku.toLowerCase().replace(/[^a-z0-9]/g, '') 
+    : Math.random().toString(36).substring(2, 8);
+
+  return `${base}-${suffix}`;
 }
 
 /**
@@ -178,6 +180,10 @@ async function processBatch(batch, mode, offset) {
     existingProducts.filter(p => p.slug).map(p => [p.slug, p])
   );
 
+  // Get highest sortOrder
+  const lastProduct = await Product.findOne().sort({ sortOrder: -1 }).select('sortOrder displayOrder');
+  let nextOrder = lastProduct ? Math.max(lastProduct.sortOrder || 0, lastProduct.displayOrder || 0) + 1 : 0;
+
   // Process each product
   for (const { row, data } of formattedProducts) {
     try {
@@ -215,6 +221,10 @@ async function processBatch(batch, mode, offset) {
           console.log(`Updated: ${data.title}`);
         }
       } else {
+        data.sortOrder = nextOrder;
+        data.displayOrder = nextOrder;
+        nextOrder++;
+
         const product = new Product(data);
         await product.save();
         
@@ -267,4 +277,4 @@ function generateSummaryMessage(results) {
     : 'No products processed';
 }
 
-export default requireAdmin(handler);
+export default withAdminAuth(handler);

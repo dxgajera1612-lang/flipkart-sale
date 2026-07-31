@@ -343,16 +343,15 @@ function Home() {
         </div>
       </div>
       <div className="product-list d-flex" style={{ minHeight: '300px', flexWrap: 'wrap' }}>
-        {loading && products.length === 0 &&
-          Array.from({ length: 6 }).map((_, i) => (
-            <div className="skeleton-card" key={`sk-init-${i}`}>
-              <div className="skeleton-img" />
-              <div className="skeleton-line" />
-              <div className="skeleton-line short" />
-              <div className="skeleton-line xshort" />
-            </div>
-          ))
-        }
+        {loading && products.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '60px 20px', minHeight: '300px' }}>
+            <div style={{ width: '42px', height: '42px', border: '3.5px solid #e2e8f0', borderTop: '3.5px solid #2874f0', borderRadius: '50%', animation: 'fkSpin 0.7s linear infinite' }} />
+            <span style={{ marginTop: '14px', fontFamily: "'Outfit', sans-serif", fontSize: '14px', fontWeight: 700, color: '#2874f0' }}>Loading Products...</span>
+            <style jsx>{`
+              @keyframes fkSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            `}</style>
+          </div>
+        )}
 
         {/* Product cards */}
         {products.map((el, index) => {
@@ -414,17 +413,10 @@ function Home() {
         {/* ✅ Sentinel div — ALWAYS rendered, observer watches this */}
         <div ref={loadMoreRef} style={{ width: '100%', height: '10px' }} />
 
-        {/* Skeleton cards while loading more */}
+        {/* Flipkart spinner loader while loading more */}
         {loading && products.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', width: '100%' }}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div className="skeleton-card" key={`sk-more-${i}`}>
-                <div className="skeleton-img" />
-                <div className="skeleton-line" />
-                <div className="skeleton-line short" />
-                <div className="skeleton-line xshort" />
-              </div>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', padding: '24px 0' }}>
+            <div style={{ width: '32px', height: '32px', border: '3px solid #e2e8f0', borderTop: '3px solid #2874f0', borderRadius: '50%', animation: 'fkSpin 0.7s linear infinite' }} />
           </div>
         )}
 

@@ -11,6 +11,11 @@ export default function Document() {
         <link rel="shortcut icon" href="/t_500x300.jpg" />
         <link rel="apple-touch-icon" href="/t_500x300.jpg" />
         
+        {/* Google Fonts */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
         {/* Meta tags */}
         <meta name="theme-color" content="#ffffff" />
         <meta name="msapplication-TileColor" content="#ffffff" />

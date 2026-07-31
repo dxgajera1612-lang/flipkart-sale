@@ -1260,6 +1260,7 @@ export default function ProductsList() {
       if (data.success) { 
         toast.success('Order saved successfully'); 
         setOrderChanged(false); 
+        fetchProducts();
       } else {
         toast.error(data.message || 'Failed to save order');
       }

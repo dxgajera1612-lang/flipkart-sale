@@ -75,6 +75,12 @@ async function handleGet(req, res) {
 
   const sortObj = {};
   sortObj[sortBy] = sortOrder;
+  if (sortBy === 'sortOrder') {
+    sortObj['displayOrder'] = sortOrder;
+  }
+  if (sortBy !== '_id') {
+    sortObj['_id'] = 1;
+  }
 
   const [products, total] = await Promise.all([
     Product.find(query)

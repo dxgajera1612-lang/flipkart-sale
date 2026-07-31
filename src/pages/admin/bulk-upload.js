@@ -2,12 +2,13 @@
 import { useState, useCallback } from 'react';
 import { parseCSV, validateProductCSV, downloadCSVTemplate } from '../../utils/csvHelper';
 import AdminLayout from '../../components/admin/AdminLayout';
+import toast from 'react-hot-toast';
 
 export default function BulkUploadProducts() {
   const [file, setFile] = useState(null);
   const [csvData, setCsvData] = useState(null);
   const [validation, setValidation] = useState(null);
-  const [uploadMode, setUploadMode] = useState('skip');
+  const [uploadMode, setUploadMode] = useState('update');
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState(null);
 
@@ -31,8 +32,15 @@ export default function BulkUploadProducts() {
       const validationResult = validateProductCSV(data);
       console.log('Validation:', validationResult);
       setValidation(validationResult);
+      
+      if (validationResult.isValid) {
+        toast.success(`CSV Loaded! Found ${data.length} products ready for upload.`);
+      } else {
+        toast.error(`CSV Validation Errors: ${validationResult.errors.join(', ')}`);
+      }
     } catch (error) {
       console.error('Error:', error);
+      toast.error('Failed to parse CSV file: ' + error.message);
       setValidation({
         isValid: false,
         errors: [error.message],
@@ -50,10 +58,14 @@ export default function BulkUploadProducts() {
 
     try {
       console.log(`Uploading ${csvData.length} products...`);
+      const token = localStorage.getItem('token');
       
       const response = await fetch('/api/products/bulk-upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           csvData,
           mode: uploadMode,
@@ -65,8 +77,14 @@ export default function BulkUploadProducts() {
       console.log('Result:', result);
       setResults(result);
 
+      if (result.success) {
+        toast.success(result.message || 'Bulk upload completed successfully!');
+      } else {
+        toast.error(result.message || 'Bulk upload completed with errors.');
+      }
+
       // Auto-reset on success
-      if (result.success && result.data.failed === 0) {
+      if (result.success && result.data?.failed === 0) {
         setTimeout(() => {
           setFile(null);
           setCsvData(null);
@@ -75,6 +93,7 @@ export default function BulkUploadProducts() {
       }
     } catch (error) {
       console.error('Upload error:', error);
+      toast.error('Upload failed: ' + error.message);
       setResults({
         success: false,
         message: 'Upload failed: ' + error.message,

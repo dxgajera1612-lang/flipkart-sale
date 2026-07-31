@@ -8,6 +8,26 @@ import { initFacebookPixel, pageview } from '../utils/facebookPixel';
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
   const [pixelLoaded, setPixelLoaded] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkDevice = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isSmallWidth = window.innerWidth <= 768;
+      
+      // If NOT mobile user agent AND width is > 768px (i.e. Desktop PC / Laptop)
+      if (!isMobileUA && !isSmallWidth && !router.pathname.startsWith('/admin')) {
+        setIsDesktop(true);
+      } else {
+        setIsDesktop(false);
+      }
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, [router.pathname]);
 
   useEffect(() => {
     // Load and initialize Facebook Pixel
@@ -82,6 +102,34 @@ function MyApp({ Component, pageProps }) {
       router.events.off('routeChangeComplete', handleRouteChange);
     };
   }, [router.events, pixelLoaded]);
+
+  if (isDesktop) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: '#000000',
+        color: '#ffffff',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 999999
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', height: '49px' }}>
+          <span style={{ fontSize: '24px', fontWeight: 500, paddingRight: '23px', marginRight: '20px', borderRight: '1px solid rgba(255, 255, 255, 0.3)', lineHeight: '49px' }}>
+            404
+          </span>
+          <span style={{ fontSize: '14px', fontWeight: 400, lineHeight: '49px', color: '#eaeaea' }}>
+            This page could not be found.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

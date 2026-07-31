@@ -2,10 +2,9 @@ import connectToDatabase from '../../../utils/mongodb';
 import Settings from '../../../models/Settings';
 import { requireAdmin, verifyToken } from '../../../utils/auth';
 
-connectToDatabase();
-
 export default async function handler(req, res) {
   try {
+    await connectToDatabase();
     if (req.method === 'GET') return handleGet(req, res);
     if (req.method === 'PUT') return requireAdmin(handlePut)(req, res);
 

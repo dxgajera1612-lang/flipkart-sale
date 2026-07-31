@@ -1,8 +1,7 @@
-"use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
-import { trackInitiateCheckout, trackAddShippingInfo } from "../../utils/facebookPixel";
+import { trackInitiateCheckout } from "../../utils/facebookPixel";
 
 // ── State Code Map ─────────────────────────────────────────────────────────────
 const STATE_MAP = {
@@ -24,10 +23,15 @@ const STATE_MAP = {
 // ── Main Component ─────────────────────────────────────────────────────────────
 const Address = () => {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     try {
@@ -80,17 +84,16 @@ const Address = () => {
     setSubmitting(true);
     try {
       const userData = {
-        address: values.house,
         name: values.fname,
-        phone: Number(values.mobile),
+        phone: String(values.mobile).replace(/\D/g, ''),
+        email: `${String(values.mobile).replace(/\D/g, '')}@customer.com`,
+        pincode: values.pincode,
+        city: values.city,
+        state: values.state,
+        address: `${values.house}, ${values.colonny}`,
       };
       localStorage.setItem("user", JSON.stringify(userData));
-      
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      const total = cart.reduce((s, p) => s + Math.round((p.sellingPrice || p.selling_price || p.price || 0) * (p.quantity || 1)), 0);
-      
-      trackAddShippingInfo('Standard', cart, total);
-      router.push("/ordersummdary");
+      router.push("/payment");
     } catch (err) {
       console.error("Failed to save address:", err);
     } finally {
@@ -149,7 +152,8 @@ const Address = () => {
     );
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  if (!mounted) return null;
+
   return (
     <>
       <style>{`
@@ -183,20 +187,25 @@ const Address = () => {
           gap: 0; padding: 14px 16px; border-bottom: 1px solid #e2e8f0;
           background: #fff;
         }
-        .step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .step { display: flex; flex-direction: column; align-items: center; flex: 1; text-align: center; }
         .step-circle {
-          width: 26px; height: 26px; border-radius: 50%;
+          width: 28px; height: 28px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          font-size: 11px; font-weight: 700; border: 2px solid #e2e8f0;
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px; font-weight: 700; border: 2px solid #e2e8f0;
           background: #fff; color: #94a3b8; z-index: 1; position: relative;
         }
-        .step-circle.done { background: #10b981; border-color: #10b981; color: #fff; }
+        .step-circle.done { background: #2874f0; border-color: #2874f0; color: #fff; }
         .step-circle.active { background: #2874f0; border-color: #2874f0; color: #fff; }
-        .step-label { font-size: 10px; margin-top: 4px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
-        .step-label.active { color: #0f172a; font-weight: 700; }
-        .step-label.done { color: #10b981; font-weight: 700; }
-        .step-line { flex: 1; height: 2px; background: #e2e8f0; margin-top: -14px; }
-        .step-line.done { background: #10b981; }
+        .step-label {
+          font-family: 'Outfit', sans-serif;
+          font-size: 11px; margin-top: 5px; color: #94a3b8; font-weight: 700;
+          letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.25;
+        }
+        .step-label.active { color: #2874f0; font-weight: 800; }
+        .step-label.done { color: #2874f0; font-weight: 700; }
+        .step-line { flex: 1; height: 2px; background: #e2e8f0; margin-top: -16px; }
+        .step-line.done { background: #2874f0; }
 
         /* Body */
         .addr-body { padding: 16px 16px 20px; background: #fff; margin-top: 10px; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
@@ -280,6 +289,7 @@ const Address = () => {
           font-weight: 700; cursor: pointer; font-family: inherit;
           letter-spacing: 0.02em; transition: background-color 0.2s;
           box-shadow: 0 4px 12px rgba(251,100,27,0.15);
+          position: relative; overflow: hidden; isolation: isolate; color-scheme: light;
         }
         .save-btn:hover:not(:disabled) { background: #e05300; }
         .save-btn:disabled { opacity: 0.65; cursor: not-allowed; }
@@ -300,11 +310,11 @@ const Address = () => {
       <div className="addr-page">
         {/* ── Header ── */}
         <div className="addr-header">
-          <Link href="/" className="back-btn">
+          <button type="button" className="back-btn" onClick={() => router.push("/cart")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
             <svg width={22} height={22} viewBox="0 0 20 20" fill="none">
               <path d="M13.746 2.314a1.5 1.5 0 0 0-2.14 0L5.475 9.243a1.5 1.5 0 0 0 0 2.114l6.131 6.929a1.5 1.5 0 0 0 2.14-2.113L8.29 10l5.456-6.173a1.5 1.5 0 0 0 0-2.113z" fill="#666" />
             </svg>
-          </Link>
+          </button>
           <h4>Add delivery address</h4>
         </div>
 
@@ -327,7 +337,7 @@ const Address = () => {
         </div>
 
         {/* ── Form body ── */}
-        <div className="addr-body">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="addr-body">
           <div className="section-heading">
             <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
               <path d="M10 0s-6.85-.044-7.35 6.43C2.2 12.165 8 16.915 9.82 17.929a.58.58 0 0 0 .36.087c.1 0 .187-.03.274-.087C12.286 16.915 18.093 12.165 17.35 6.43 16.849-.044 10 0 10 0zm0 9.718a2.718 2.718 0 1 1 0-5.436 2.718 2.718 0 0 1 0 5.436z" fill="#90B1FB" />
@@ -482,12 +492,12 @@ const Address = () => {
             />
             <label htmlFor="colonny">Road Name, Area, Colony</label>
           </div>
-        </div>
+        </form>
 
         {/* ── Fixed footer CTA ── */}
         <div className="addr-footer">
           <button
-            type="button"
+            type="submit"
             className="save-btn"
             onClick={handleSubmit}
             disabled={submitting}

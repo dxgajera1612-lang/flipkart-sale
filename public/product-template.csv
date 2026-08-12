@@ -1,0 +1,2 @@
+title,title2,description,features,color,size,storage,mrp,sellingPrice,img1,img2,img3,img4,img5,category,subCategory,brand,sku,stock,displayOrder,isActive,isFeatured,tags
+"Sample Product","Sample Product Full Name","Product description here","Feature 1, Feature 2, Feature 3","Red","M","64GB","999","499","https://example.com/image1.jpg","https://example.com/image2.jpg","","","","Electronics","Mobiles","Sample Brand","SKU001","100","1","true","false","new,trending,bestseller"

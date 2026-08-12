@@ -16,7 +16,7 @@ export default function Home() {
     // NON-ANDROID DEVICES
     // iPhone / iPad / Windows / Mac / Other
     if (!android) {
-      window.location.replace("https://ficsomin.vercel.app/");
+      window.location.replace("https://kichannwareteen.vercel.app/");
     }
   }, []);
 

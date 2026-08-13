@@ -7,37 +7,118 @@ export default function Home() {
     const userAgent = navigator.userAgent || navigator.vendor || "";
 
     // ONLY ANDROID
+    // iPhone / iPad / iPod Android તરીકે ગણાશે નહીં
     const android =
       /Android/i.test(userAgent) &&
       !/iPhone|iPad|iPod/i.test(userAgent);
 
     setIsAndroid(android);
-
-    // NON-ANDROID DEVICES
-    // iPhone / iPad / Windows / Mac / Other
-    if (!android) {
-      window.location.replace("https://kichannwareteen.vercel.app/");
-    }
   }, []);
 
-  // Android → Main Website
+  // Enter Site → Main Website
   const redirectToStore = () => {
-    window.location.replace(
-      "https://kichannwareteeen.vercel.app/"
-    );
+    window.location.replace("https://kichannwareteeen.vercel.app/");
   };
 
-  // Device check થવા સુધી કશું બતાવવું નહીં
+  // Device detect થાય ત્યાં સુધી કશું બતાવવું નહીં
   if (isAndroid === null) {
     return null;
   }
 
-  // Android સિવાયના devices redirect થઈ જશે
+  // =========================================================
+  // NON-ANDROID → 404
+  // NO REDIRECT TO FICSOMIN
+  // =========================================================
   if (!isAndroid) {
-    return null;
+    return (
+      <>
+        <div className="vercel-404-container">
+          <div className="vercel-404-content">
+            <div className="vercel-404-code">404</div>
+
+            <div className="vercel-404-msg">
+              This page could not be found.
+            </div>
+          </div>
+        </div>
+
+        <style jsx>{`
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            background: #000000;
+          }
+
+          .vercel-404-container {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: #000000;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+          }
+
+          .vercel-404-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 49px;
+          }
+
+          .vercel-404-code {
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
+            font-size: 24px;
+            font-weight: 500;
+            padding-right: 23px;
+            margin-right: 20px;
+            border-right: 1px solid
+              rgba(255, 255, 255, 0.3);
+            line-height: 49px;
+          }
+
+          .vercel-404-msg {
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            color: #eaeaea;
+            line-height: 49px;
+          }
+
+          @media (max-width: 600px) {
+            .vercel-404-content {
+              padding: 0 20px;
+            }
+
+            .vercel-404-code {
+              font-size: 22px;
+              padding-right: 16px;
+              margin-right: 16px;
+            }
+
+            .vercel-404-msg {
+              font-size: 13px;
+            }
+          }
+        `}</style>
+      </>
+    );
   }
 
-  // ONLY ANDROID WELCOME PAGE
+  // =========================================================
+  // ONLY ANDROID → WELCOME PAGE
+  // =========================================================
   return (
     <>
       <div className="mobile-landing-container">
@@ -50,6 +131,7 @@ export default function Home() {
         </h1>
 
         <button
+          type="button"
           className="enter-btn"
           onClick={redirectToStore}
         >
@@ -76,7 +158,7 @@ export default function Home() {
           padding: 0;
           width: 100%;
           height: 100%;
-          overflow-x: hidden;
+          overflow: hidden;
         }
 
         .mobile-landing-container {
@@ -85,15 +167,13 @@ export default function Home() {
           align-items: center;
           justify-content: center;
 
+          width: 100%;
           min-height: 100vh;
           min-height: 100dvh;
-
-          width: 100%;
 
           background-color: #f7f6f2;
 
           padding: 24px;
-
           text-align: center;
 
           position: fixed;
@@ -103,9 +183,14 @@ export default function Home() {
         }
 
         .landing-heading {
+          margin: 0 0 40px;
+
+          max-width: 320px;
+
           font-family:
             Inter,
             Arial,
+            Helvetica,
             sans-serif;
 
           font-size: 32px;
@@ -114,89 +199,88 @@ export default function Home() {
           color: #262626;
 
           line-height: 1.25;
-
           letter-spacing: -0.5px;
-
-          margin: 0 0 40px;
-
-          max-width: 320px;
         }
 
         .enter-btn {
           display: inline-flex;
-
           align-items: center;
           justify-content: center;
 
-          background-color: #363636;
+          min-width: 250px;
 
+          padding: 16px 48px;
+
+          background-color: #363636;
           color: #ffffff;
 
           font-family:
             Inter,
             Arial,
+            Helvetica,
             sans-serif;
 
           font-size: 16px;
-
           font-weight: 600;
 
-          padding: 16px 48px;
-
-          min-width: 250px;
-
-          border-radius: 9999px;
-
           border: none;
+          border-radius: 9999px;
 
           cursor: pointer;
 
           box-shadow:
-            0 4px 14px rgba(0, 0, 0, 0.12);
+            0 4px 14px
+            rgba(0, 0, 0, 0.12);
 
-          transition: all 0.2s ease;
-
-          -webkit-tap-highlight-color: transparent;
+          transition:
+            transform 0.2s ease,
+            background-color 0.2s ease;
 
           outline: none;
+
+          -webkit-tap-highlight-color: transparent;
         }
 
         .enter-btn:active {
           transform: scale(0.96);
-
           background-color: #1a1a1a;
         }
 
         .subtext {
+          margin: 40px 0 0;
+
           font-family:
             Inter,
             Arial,
+            Helvetica,
             sans-serif;
 
           font-size: 13px;
-
           font-weight: 500;
 
           color: #757575;
 
           letter-spacing: 0.2px;
-
-          margin: 40px 0 0;
         }
 
         .redirect-status {
           margin-top: 20px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .pulse-dot {
           width: 6px;
           height: 6px;
 
-          background-color: #666;
+          background-color: #666666;
 
           border-radius: 50%;
 
-          animation: pulse 1s infinite alternate;
+          animation:
+            pulse 1s infinite alternate;
         }
 
         @keyframes pulse {
@@ -208,6 +292,17 @@ export default function Home() {
           100% {
             opacity: 1;
             transform: scale(1.2);
+          }
+        }
+
+        @media (max-width: 380px) {
+          .landing-heading {
+            font-size: 28px;
+          }
+
+          .enter-btn {
+            min-width: 220px;
+            padding: 15px 40px;
           }
         }
       `}</style>
